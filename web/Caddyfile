@@ -16,6 +16,14 @@
 	# El service worker no se guarda en caché, para que las actualizaciones lleguen enseguida.
 	header /sw.js Cache-Control no-cache
 
+	# Los archivos de /assets llevan un código en el nombre que cambia en cada versión:
+	# se pueden guardar para siempre. Todo lo demás (sobre todo index.html) se revisa
+	# siempre con el servidor, para que la app de Android y el navegador vean los cambios.
+	@assets path /assets/*
+	header @assets Cache-Control "public, max-age=31536000, immutable"
+	@page not path /assets/* /sw.js /api/* /firebase.json
+	header @page Cache-Control no-cache
+
 	handle {
 		root * /srv
 		try_files {path} /index.html
