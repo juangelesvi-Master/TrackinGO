@@ -191,3 +191,26 @@ docker compose logs -f web         # mensajes del certificado HTTPS y de la app
 ```
 
 Si el candado HTTPS no aparece, casi siempre el dominio todavía no apunta a la IP (Paso 2). Espera un rato y ejecuta `docker compose restart web`.
+
+---
+
+## Servidor de pruebas en casa (Coolify)
+
+Para probar antes de pagar un droplet se puede usar un servidor en casa que ya tenga Coolify. Se usa `docker-compose.coolify.yml`, que no ocupa los puertos 80/443 de Coolify y no necesita dominio.
+
+1. En Coolify: **+ New → Public Repository**, pega la dirección de este repositorio y elige el Build Pack **Docker Compose**.
+2. En **Docker Compose Location** pon `/servidor/docker-compose.coolify.yml`.
+3. En **Environment Variables** llena `DB_PASSWORD` (una contraseña larga) y `WEB_URL` (por ejemplo `http://192.168.1.109:8090`).
+4. Dale **Deploy**.
+
+Quedan así, dentro de la red de la casa:
+
+| Qué | Dirección |
+|---|---|
+| App web de Traking GO | `http://IP-DEL-SERVIDOR:8090` |
+| Panel original de Traccar | `http://IP-DEL-SERVIDOR:8082` |
+| Rastreadores Teltonika | puerto `5027` (ábrelo en el módem hacia el servidor) |
+
+La cuenta Maestro se crea igual que en el Paso 5, pero entrando directo a `http://IP-DEL-SERVIDOR:8082`.
+
+> Sin HTTPS, el celular no deja instalar la app ni recibir avisos push. Para eso hace falta el servidor con dominio.

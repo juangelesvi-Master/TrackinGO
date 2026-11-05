@@ -1,0 +1,86 @@
+# Traking GO para Coolify (servidor de pruebas en casa o cualquier servidor con Coolify).
+# Igual que docker-compose.yml, pero sin ocupar los puertos 80/443, que en Coolify
+# ya usa su propio proxy. La app se abre por HTTP en la red local:
+#   App web:               http://IP-DEL-SERVIDOR:8090
+#   Panel original Traccar: http://IP-DEL-SERVIDOR:8082
+# En Coolify: + New → Public Repository → Build Pack "Docker Compose"
+#   → Docker Compose Location: /servidor/docker-compose.coolify.yml
+# Variables que pide Coolify: DB_PASSWORD (obligatoria) y WEB_URL.
+
+services:
+  db:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: traccar
+      POSTGRES_USER: traccar
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Falta DB_PASSWORD}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U traccar"]
+      interval: 10s
+      retries: 10
+
+  traccar:
+    image: traccar/traccar:6.16
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      CONFIG_USE_ENVIRONMENT_VARIABLES: "true"
+      DATABASE_DRIVER: org.postgresql.Driver
+      DATABASE_URL: jdbc:postgresql://db:5432/traccar
+      DATABASE_USER: traccar
+      DATABASE_PASSWORD: ${DB_PASSWORD}
+      # Dirección con la que se abre la app (se usa en los correos).
+      WEB_URL: ${WEB_URL:-http://localhost:8090}
+      MAIL_SMTP_HOST: ${SMTP_HOST:-}
+      MAIL_SMTP_PORT: ${SMTP_PORT:-587}
+      MAIL_SMTP_STARTTLS_ENABLE: "true"
+      MAIL_SMTP_USERNAME: ${SMTP_USER:-}
+      MAIL_SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      MAIL_SMTP_FROM: ${SMTP_FROM:-}
+      MAIL_SMTP_FROM_NAME: Traking GO
+      DATABASE_HISTORY_DAYS: ${HISTORY_DAYS:-180}
+      NOTIFICATOR_TYPES: ${NOTIFICATOR_TYPES:-web,mail}
+      NOTIFICATOR_FIREBASE_SERVICE_ACCOUNT: ${FIREBASE_SERVICE_ACCOUNT:-}
+    ports:
+      # Panel original de Traccar en la red local (no abrir este puerto en el módem).
+      - "8082:8082"
+      # Teltonika. Agrega aquí el puerto de otras marcas si las usas (ver GUIA.md).
+      - "5027:5027"
+      - "5027:5027/udp"
+    volumes:
+      - traccar-logs:/opt/traccar/logs
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8082/api/health"]
+      interval: 1m
+      timeout: 5s
+      start_period: 2m
+      retries: 3
+
+  web:
+    build:
+      context: ../web
+      dockerfile: ../servidor/web.Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - traccar
+    environment:
+      # ":80" hace que Caddy sirva por HTTP simple, sin pedir certificado.
+      DOMAIN: ":80"
+      FIREBASE_WEB_CONFIG: ${FIREBASE_WEB_CONFIG:-}
+    ports:
+      # 8090 porque el 8080 lo usa el proxy de Coolify.
+      - "8090:80"
+    volumes:
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  db-data:
+  traccar-logs:
+  caddy-data:
+  caddy-config:
