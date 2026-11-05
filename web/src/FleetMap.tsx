@@ -20,6 +20,9 @@ interface Props {
   showLive: boolean
   /** Entrega el mapa a las otras pantallas para que dibujen encima (rutas, geocercas). */
   onMap: (map: maplibregl.Map | null) => void
+  /** Mapa ampliado (sin la lista de la izquierda). */
+  wide: boolean
+  onToggleWide: () => void
 }
 
 function markerElement() {
@@ -63,7 +66,7 @@ function glide(marker: maplibregl.Marker, to: [number, number], frames: Map<mapl
   frames.set(marker, requestAnimationFrame(step))
 }
 
-export default function FleetMap({ devices, positions, selectedId, onSelect, showLive, onMap }: Props) {
+export default function FleetMap({ devices, positions, selectedId, onSelect, showLive, onMap, wide, onToggleWide }: Props) {
   const container = useRef<HTMLDivElement>(null)
   const map = useRef<maplibregl.Map | null>(null)
   const markers = useRef(new Map<number, maplibregl.Marker>())
@@ -185,6 +188,12 @@ export default function FleetMap({ devices, positions, selectedId, onSelect, sho
     })
   }, [traffic])
 
+  // Al ampliar o reducir, el mapa se reacomoda al nuevo tamaño.
+  useEffect(() => {
+    const id = requestAnimationFrame(() => map.current?.resize())
+    return () => cancelAnimationFrame(id)
+  }, [wide])
+
   const getMap = useCallback(() => map.current, [])
 
   function toggleTraffic() {
@@ -224,6 +233,21 @@ export default function FleetMap({ devices, positions, selectedId, onSelect, sho
     <div className={showLive ? 'map' : 'map hide-live'}>
       <div ref={container} className="map-canvas" />
       {hasTomTom && showLive && <MapSearch getMap={getMap} devices={devices} positions={positions} selectedId={selectedId} />}
+      <button
+        type="button"
+        className="map-expand"
+        onClick={onToggleWide}
+        aria-pressed={wide}
+        title={wide ? 'Regresar el mapa a su tamaño' : 'Ampliar el mapa'}
+        aria-label={wide ? 'Regresar el mapa a su tamaño' : 'Ampliar el mapa'}
+      >
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+          <path
+            fill="currentColor"
+            d={wide ? 'M9 3v6H3V7h4V3h2zm6 0h2v4h4v2h-6V3zM3 15h6v6H7v-4H3v-2zm12 0h6v2h-4v4h-2v-6z' : 'M3 3h6v2H5v4H3V3zm12 0h6v6h-2V5h-4V3zM3 15h2v4h4v2H3v-6zm16 0h2v6h-6v-2h4v-4z'}
+          />
+        </svg>
+      </button>
       <div className="style-picker">
         <button type="button" className="style-toggle" onClick={() => setPickerOpen((o) => !o)} aria-expanded={pickerOpen} title="Cambiar tipo de mapa">
           <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">

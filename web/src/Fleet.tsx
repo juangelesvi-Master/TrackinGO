@@ -33,6 +33,8 @@ function mergeEvents(a: TraccarEvent[], b: TraccarEvent[]) {
 export default function Fleet({ user, onUser, onLogout }: { user: User; onUser: (u: User) => void; onLogout: () => void }) {
   const [devices, setDevices] = useState<Record<number, Device>>({})
   const [positions, setPositions] = useState<Record<number, Position>>({})
+  // Mapa ampliado: esconde la lista de la izquierda.
+  const [wide, setWide] = useState(false)
   const [events, setEvents] = useState<TraccarEvent[]>([])
   const [drivers, setDrivers] = useState<Driver[]>([])
   const [toasts, setToasts] = useState<TraccarEvent[]>([])
@@ -162,7 +164,7 @@ export default function Fleet({ user, onUser, onLogout }: { user: User; onUser: 
   }, [fullPage, map])
 
   return (
-    <div className="fleet">
+    <div className={wide ? 'fleet wide' : 'fleet'}>
       <aside className="sidebar">
         {supportBy && (
           <div className="support-banner">
@@ -213,7 +215,16 @@ export default function Fleet({ user, onUser, onLogout }: { user: User; onUser: 
       </aside>
 
       <main className="main">
-        <FleetMap devices={devices} positions={positions} selectedId={selectedId} onSelect={setSelectedId} showLive={tab !== 'history'} onMap={setMap} />
+        <FleetMap
+          devices={devices}
+          positions={positions}
+          selectedId={selectedId}
+          onSelect={setSelectedId}
+          showLive={tab !== 'history'}
+          onMap={setMap}
+          wide={wide}
+          onToggleWide={() => setWide((w) => !w)}
+        />
         {tab === 'admin' && <AdminPage me={user} devices={deviceList} positions={positions} drivers={drivers} onChanged={reloadAdmin} onBack={closePage} />}
         {tab === 'reports' && perms.history && <ReportsPage devices={deviceList} brand={brand} onBack={closePage} />}
         {tab === 'master' && isMaster && <MasterPage me={user} devices={deviceList} onChanged={reloadAdmin} onBack={closePage} />}
