@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import * as maplibregl from 'maplibre-gl'
 import { distance, escapeHtml, pinElement, removeLayers, whenReady } from '../mapUtil'
-import { formatDuration, formatTime, getRoute, getStops, knotsToKmh, type Device, type Position, type Stop } from '../traccar'
+import { deleteRoute, formatDuration, formatTime, getPositions, getRoute, getStops, knotsToKmh, type Device, type Position, type Stop } from '../traccar'
 
 interface Route {
   points: Position[]
@@ -79,7 +79,15 @@ function useRouteLayer(map: maplibregl.Map | null, route: Route | null, cursor: 
   }, [route, cursor])
 }
 
-export default function HistoryPanel({ map, devices, initialDeviceId }: { map: maplibregl.Map | null; devices: Device[]; initialDeviceId: number | null }) {
+interface Props {
+  map: maplibregl.Map | null
+  devices: Device[]
+  initialDeviceId: number | null
+  /** Administradores: pueden borrar el historial. */
+  canDelete: boolean
+}
+
+export default function HistoryPanel({ map, devices, initialDeviceId, canDelete }: Props) {
   const [deviceId, setDeviceId] = useState<number | null>(initialDeviceId ?? devices[0]?.id ?? null)
   const [today] = useState(() => toInputDate(new Date()))
   const [date, setDate] = useState(today)
@@ -124,6 +132,42 @@ export default function HistoryPanel({ map, devices, initialDeviceId }: { map: m
       setError('No se pudo cargar el recorrido. Inténtalo de nuevo.')
     } finally {
       setLoading(false)
+    }
+  }
+
+  const [deleting, setDeleting] = useState(false)
+  const [notice, setNotice] = useState('')
+
+  /** Borra el recorrido de este día o todo el historial del vehículo. Siempre conserva su ubicación actual. */
+  const remove = async (all: boolean) => {
+    if (deviceId == null) return
+    const name = devices.find((d) => d.id === deviceId)?.name ?? 'este vehículo'
+    const [y, m, d] = date.split('-').map(Number)
+    const question = all
+      ? `¿Borrar TODO el historial de recorridos de "${name}"? Solo se conserva su ubicación actual. No se puede deshacer.`
+      : `¿Borrar el recorrido de "${name}" del ${d}/${m}/${y}? No se puede deshacer.`
+    if (!confirm(question)) return
+    setDeleting(true)
+    setError('')
+    setNotice('')
+    try {
+      const from = all ? new Date(2000, 0, 1) : new Date(y, m - 1, d)
+      let to = all ? new Date() : new Date(y, m - 1, d + 1)
+      // No borrar la última posición: es la que se ve en el mapa en vivo.
+      const latest = (await getPositions()).find((p) => p.deviceId === deviceId)
+      if (latest) {
+        const keep = new Date(new Date(latest.fixTime).getTime() - 1000)
+        if (keep < to) to = keep
+      }
+      if (to > from) await deleteRoute(deviceId, from, to)
+      setRoute(all || route ? { points: [], stops: [] } : null)
+      setPlaying(false)
+      setCursor(0)
+      setNotice(all ? 'Se borró el historial del vehículo.' : 'Se borró el recorrido de ese día.')
+    } catch {
+      setError('No se pudo borrar el historial. Inténtalo de nuevo.')
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -174,6 +218,7 @@ export default function HistoryPanel({ map, devices, initialDeviceId }: { map: m
           {loading ? 'Cargando…' : 'Ver recorrido'}
         </button>
         {error && <div className="error">{error}</div>}
+        {notice && <div className="notice success">{notice}</div>}
       </div>
 
       {route && route.points.length === 0 && <p className="muted empty">Este vehículo no reportó posiciones ese día.</p>}
@@ -243,6 +288,20 @@ export default function HistoryPanel({ map, devices, initialDeviceId }: { map: m
             ))}
           </ul>
         </>
+      )}
+
+      {canDelete && deviceId != null && (
+        <div className="panel-pad danger-zone">
+          <p className="muted small">Borrar historial (solo administradores, no se puede deshacer)</p>
+          <div className="row-actions">
+            <button type="button" className="danger" onClick={() => remove(false)} disabled={deleting}>
+              Borrar este día
+            </button>
+            <button type="button" className="danger" onClick={() => remove(true)} disabled={deleting}>
+              Borrar todo
+            </button>
+          </div>
+        </div>
       )}
     </div>
   )
