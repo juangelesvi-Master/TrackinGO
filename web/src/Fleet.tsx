@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type * as maplibregl from 'maplibre-gl'
 import FleetMap from './FleetMap'
-import { eventText, URGENT } from './labels'
+import { eventText, isUrgent } from './labels'
 import { permsOf } from './permissions'
 import AdminPage from './panels/AdminPage'
 import AlertsPanel from './panels/AlertsPanel'
@@ -234,7 +234,7 @@ export default function Fleet({ user, onUser, onLogout }: { user: User; onUser: 
         {toasts.map((e) => {
           const { vehicle, what } = eventText(e, devices)
           return (
-            <button key={e.id} className={`toast ${URGENT.has(e.type) ? 'urgent' : ''}`} onClick={() => openTab('alerts')}>
+            <button key={e.id} className={`toast ${isUrgent(e) ? 'urgent' : ''}`} onClick={() => openTab('alerts')}>
               <strong>{what}</strong>
               <span>{vehicle}</span>
             </button>

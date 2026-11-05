@@ -1,13 +1,27 @@
-import { getReport, knotsToKmh, type Device, type Stop, type SummaryRow, type TraccarEvent, type Trip } from './traccar'
+import { assignedDevice, getDrivers, getReport, knotsToKmh, type Device, type Stop, type SummaryRow, type TraccarEvent, type Trip } from './traccar'
 
-export type ReportKind = 'summary' | 'trips' | 'stops' | 'overspeed'
+export type ReportKind = 'summary' | 'trips' | 'stops' | 'overspeed' | 'driving'
 
 export const REPORT_KINDS: { id: ReportKind; label: string; description: string }[] = [
   { id: 'summary', label: 'Resumen', description: 'Kilómetros, velocidades, horas de motor, paradas y excesos de cada vehículo.' },
   { id: 'trips', label: 'Viajes', description: 'Cada recorrido: de dónde salió, a dónde llegó, cuánto tardó y cuántos kilómetros hizo.' },
   { id: 'stops', label: 'Paradas', description: 'Dónde se detuvo cada vehículo y cuánto tiempo.' },
   { id: 'overspeed', label: 'Excesos', description: 'Cada vez que un vehículo pasó su límite de velocidad.' },
+  {
+    id: 'driving',
+    label: 'Manejo',
+    description: 'Calificación de 0 a 100 por vehículo y chofer según aceleraciones, frenadas y vueltas bruscas y excesos de velocidad cada 100 km.',
+  },
 ]
+
+/** Peso de cada evento en la calificación de manejo. */
+const DRIVING_WEIGHT = { hardAcceleration: 1, hardBraking: 1.5, hardCornering: 1, overspeed: 2 }
+
+/** Calificación de 0 a 100: se restan 5 puntos por cada evento (ponderado) cada 100 km. */
+export function drivingScore(weighted: number, km: number) {
+  if (km < 1) return null
+  return Math.max(0, Math.round(100 - (weighted / km) * 100 * 5))
+}
 
 export type Cell = string | number
 
@@ -115,6 +129,57 @@ export async function buildReport(kind: ReportKind, devices: Device[], from: Dat
       ],
       rows,
       total: [`Total (${rows.length} vehículos)`, sum(1), Math.max(0, ...rows.map((r) => Number(r[2]))), '', sum(4), sum(5), sum(6)],
+    }
+  }
+
+  if (kind === 'driving') {
+    const [summary, alarms, overspeed, drivers] = await Promise.all([
+      getReport<SummaryRow>('summary', ids, from, to),
+      getReport<TraccarEvent>('events', ids, from, to, { type: 'alarm' }),
+      getReport<TraccarEvent>('events', ids, from, to, { type: 'deviceOverspeed' }),
+      getDrivers().catch(() => []),
+    ])
+    const countAlarm = (id: number, alarm: string) => alarms.filter((e) => e.deviceId === id && e.attributes.alarm === alarm).length
+    const rows = devices
+      .map((d) => {
+        const distance = km(summary.find((x) => x.deviceId === d.id)?.distance ?? 0)
+        const acc = countAlarm(d.id, 'hardAcceleration')
+        const brake = countAlarm(d.id, 'hardBraking')
+        const corner = countAlarm(d.id, 'hardCornering')
+        const speed = countAlarm(d.id, 'overspeed') + overspeed.filter((e) => e.deviceId === d.id).length
+        const w = DRIVING_WEIGHT
+        const score = drivingScore(acc * w.hardAcceleration + brake * w.hardBraking + corner * w.hardCornering + speed * w.overspeed, distance)
+        const driver = drivers.find((x) => assignedDevice(x) === d.id)?.name ?? '—'
+        return [d.name, driver, distance, acc, brake, corner, speed, score ?? '—'] as Cell[]
+      })
+      // Primero los que peor manejan, para atenderlos.
+      .sort((a, b) => (typeof a[7] === 'number' ? a[7] : 101) - (typeof b[7] === 'number' ? b[7] : 101))
+    const sum = (i: number) => rows.reduce((t, r) => t + Number(r[i]), 0)
+    const scored = rows.filter((r) => typeof r[7] === 'number')
+    return {
+      ...base,
+      title: 'Manejo',
+      columns: [
+        { label: 'Vehículo', width: 22 },
+        { label: 'Chofer', width: 20 },
+        { label: 'Km', number: true, width: 9 },
+        { label: 'Aceleraciones bruscas', number: true, width: 12 },
+        { label: 'Frenadas bruscas', number: true, width: 12 },
+        { label: 'Vueltas bruscas', number: true, width: 12 },
+        { label: 'Excesos', number: true, width: 10 },
+        { label: 'Calificación', number: true, width: 12 },
+      ],
+      rows,
+      total: [
+        `${rows.length} vehículos`,
+        '',
+        Math.round(sum(2) * 10) / 10,
+        sum(3),
+        sum(4),
+        sum(5),
+        sum(6),
+        scored.length ? Math.round(scored.reduce((t, r) => t + Number(r[7]), 0) / scored.length) : '—',
+      ],
     }
   }
 

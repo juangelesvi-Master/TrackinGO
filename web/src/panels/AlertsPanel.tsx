@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { eventText, URGENT } from '../labels'
+import { eventText, isUrgent } from '../labels'
 import { myStaff, shareRules } from '../staff'
 import PhoneBox from './PhoneBox'
 import {
@@ -102,7 +102,7 @@ export default function AlertsPanel({ user, onUser, devices, events, canEdit }: 
             const { vehicle, what } = eventText(e, devices, geofenceNames[e.geofenceId])
             return (
               <li key={e.id}>
-                <span className={`dot ${URGENT.has(e.type) ? 'urgent' : 'online'}`} />
+                <span className={`dot ${isUrgent(e) ? 'urgent' : 'online'}`} />
                 <div className="device-info">
                   <div className="device-name">{what}</div>
                   <div className="muted small">
