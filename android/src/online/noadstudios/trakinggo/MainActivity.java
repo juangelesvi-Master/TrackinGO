@@ -28,7 +28,7 @@ import java.io.OutputStream;
  */
 public class MainActivity extends Activity {
 
-    static final String PORTAL = "https://trakinggo.noadstudios.online/";
+    static final String PORTAL = "https://trackingo.noadstudios.online/";
     static final String HOST = Uri.parse(PORTAL).getHost();
 
     static final int PICK_FILE = 1;

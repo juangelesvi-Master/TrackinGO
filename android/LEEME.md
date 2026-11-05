@@ -1,6 +1,6 @@
 # Traking GO para Android
 
-App de Android que abre el portal https://trakinggo.noadstudios.online en pantalla completa.
+App de Android que abre el portal https://trackingo.noadstudios.online en pantalla completa.
 
 - Archivo para instalar: `TrakingGO.apk`.
 - Para apuntar a otro servidor, cambia `PORTAL` en `src/online/noadstudios/trakinggo/MainActivity.java`, sube `android:versionCode` en `AndroidManifest.xml` y vuelve a compilar con `./build.sh`.
