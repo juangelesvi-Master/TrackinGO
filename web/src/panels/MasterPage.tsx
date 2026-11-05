@@ -2,7 +2,23 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { MIN_PASSWORD } from '../auth/password'
 import { shrinkLogo, type Brand } from '../brand'
 import { generatePassword, isCompany, ROLES, traccarFlags } from '../permissions'
-import { addLinks, createUser, deleteUser, getUserDevices, getUsers, loginAs, removeLinks, SUPPORT_KEY, updateUser, type Device, type User } from '../traccar'
+import {
+  addLinks,
+  createUser,
+  deleteDevice,
+  deleteUser,
+  getUserDevices,
+  getUsers,
+  loginAs,
+  removeLinks,
+  SUPPORT_KEY,
+  timeAgo,
+  updateDevice,
+  updateUser,
+  type Device,
+  type User,
+} from '../traccar'
+import { DeviceForm } from './AdminPage'
 import { Modal } from './Modal'
 import { Credentials, DevicePicker } from './UsersTab'
 import { userErrorText } from './userErrors'
@@ -13,6 +29,8 @@ type Creds = { name: string; login: string; password: string }
 /** Lo que tiene cada empresa: sus vehículos y sus usuarios. */
 interface CompanyInfo {
   devices: Set<number>
+  /** Sus vehículos completos, también los que la empresa dio de alta ella misma. */
+  list: Device[]
   users: User[]
 }
 
@@ -47,8 +65,10 @@ function CompanyForm({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
 
+  // Se juntan los vehículos de Maestro con los que la empresa dio de alta ella misma.
   // En la lista se indica si un vehículo ya es de otra empresa.
-  const pickable = devices.map((d) => {
+  const all = [...devices, ...(info?.list ?? []).filter((d) => !devices.some((m) => m.id === d.id))]
+  const pickable = all.map((d) => {
     const owner = owners.get(d.id)
     return owner && owner !== company?.name ? { ...d, name: `${d.name} · ${owner}` } : d
   })
@@ -92,7 +112,8 @@ function CompanyForm({
     <Modal title={company ? `Editar ${company.name}` : 'Nueva empresa'} onClose={onCancel}>
       <form className="auth-form" onSubmit={submit}>
         <p className="muted small">
-          La empresa entra con su propio usuario y es administradora de lo suyo: sus vehículos, choferes, mantenimiento, geocercas, alertas y sus propios usuarios. No ve nada de otras empresas.
+          La empresa entra con su propio usuario y es administradora de lo suyo: sus vehículos, choferes, mantenimiento, geocercas, alertas y sus propios
+          usuarios. No ve nada de otras empresas.
         </p>
         <label>
           Nombre de la empresa
@@ -123,7 +144,13 @@ function CompanyForm({
         </div>
         <label>
           Usuario o correo del administrador (con esto inicia sesión)
-          <input value={login} onChange={(e) => setLogin(e.target.value.replace(/\s/g, ''))} required placeholder="Ej. transportesruiz o admin@empresa.com" autoComplete="off" />
+          <input
+            value={login}
+            onChange={(e) => setLogin(e.target.value.replace(/\s/g, ''))}
+            required
+            placeholder="Ej. transportesruiz o admin@empresa.com"
+            autoComplete="off"
+          />
         </label>
         <label>
           {company ? 'Nueva contraseña (déjala vacía para no cambiarla)' : 'Contraseña'}
@@ -172,11 +199,109 @@ function CompanyForm({
   )
 }
 
+/** Los vehículos de una empresa: Maestro los puede editar, desactivar o borrar. */
+function CompanyDevices({ company, devices, onChanged, onClose }: { company: User; devices: Device[]; onChanged: () => void; onClose: () => void }) {
+  const [editing, setEditing] = useState<Device | null>(null)
+  const [busy, setBusy] = useState<number | null>(null)
+  const [error, setError] = useState('')
+  const list = [...devices].sort((a, b) => a.name.localeCompare(b.name))
+
+  const run = async (d: Device, action: () => Promise<unknown>, fallback: string) => {
+    setBusy(d.id)
+    setError('')
+    try {
+      await action()
+    } catch (err) {
+      setError(userErrorText(err, fallback))
+    }
+    setBusy(null)
+    onChanged()
+  }
+
+  const toggle = (d: Device) => {
+    const off = !d.disabled
+    if (off && !confirm(`¿Desactivar "${d.name}"? Dejará de recibir ubicaciones hasta que lo vuelvas a activar. No se borra su historial.`)) return
+    run(d, () => updateDevice({ ...d, disabled: off }), 'No se pudo cambiar el vehículo.')
+  }
+
+  const remove = (d: Device) => {
+    if (!confirm(`¿Borrar "${d.name}"? Se borra para todos, con todo su historial. Si solo quieres pausarlo, mejor desactívalo.`)) return
+    run(d, () => deleteDevice(d.id), 'No se pudo borrar.')
+  }
+
+  return (
+    <>
+      <Modal title={`Vehículos de ${company.name}`} onClose={onClose} wide>
+        {error && <div className="error">{error}</div>}
+        <div className="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Vehículo</th>
+                <th>IMEI</th>
+                <th>Último reporte</th>
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              {list.length === 0 && (
+                <tr>
+                  <td colSpan={4} className="muted">
+                    Esta empresa aún no tiene vehículos.
+                  </td>
+                </tr>
+              )}
+              {list.map((d) => (
+                <tr key={d.id}>
+                  <td>
+                    <span className={`dot ${d.status}`} /> {d.name}
+                    {d.disabled && <span className="status status-unknown"> Desactivado</span>}
+                  </td>
+                  <td className="mono">{d.uniqueId}</td>
+                  <td>{timeAgo(d.lastUpdate)}</td>
+                  <td className="actions">
+                    <button className="link" disabled={busy === d.id} onClick={() => setEditing(d)}>
+                      Editar
+                    </button>
+                    <button className="link" disabled={busy === d.id} onClick={() => toggle(d)}>
+                      {d.disabled ? 'Activar' : 'Desactivar'}
+                    </button>
+                    <button className="link danger-text" disabled={busy === d.id} onClick={() => remove(d)}>
+                      Borrar
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className="modal-actions">
+          <button type="button" className="secondary" onClick={onClose}>
+            Cerrar
+          </button>
+        </div>
+      </Modal>
+      {editing && (
+        <DeviceForm
+          device={editing}
+          odometerKm={null}
+          onDone={() => {
+            setEditing(null)
+            onChanged()
+          }}
+          onCancel={() => setEditing(null)}
+        />
+      )}
+    </>
+  )
+}
+
 /** Panel Maestro: solo la cuenta Maestro (administrador del servidor) lo ve. Aquí se manejan las empresas. */
 export default function MasterPage({ me, devices, onChanged, onBack }: { me: User; devices: Device[]; onChanged: () => void; onBack: () => void }) {
   const [companies, setCompanies] = useState<User[]>([])
   const [info, setInfo] = useState<Record<number, CompanyInfo>>({})
   const [editing, setEditing] = useState<User | null | 'new'>(null)
+  const [viewing, setViewing] = useState<User | null>(null)
   const [creds, setCreds] = useState<Creds | null>(null)
   const [error, setError] = useState('')
   const [today] = useState(() => new Date().toISOString())
@@ -187,7 +312,7 @@ export default function MasterPage({ me, devices, onChanged, onBack }: { me: Use
         const list = all.filter(isCompany).sort((a, b) => a.name.localeCompare(b.name))
         const details = await Promise.all(list.map((c) => Promise.all([getUserDevices(c.id), getUsers(c.id)])))
         setCompanies(list)
-        setInfo(Object.fromEntries(list.map((c, i) => [c.id, { devices: new Set(details[i][0].map((d) => d.id)), users: details[i][1] }])))
+        setInfo(Object.fromEntries(list.map((c, i) => [c.id, { devices: new Set(details[i][0].map((d) => d.id)), list: details[i][0], users: details[i][1] }])))
       })
       .catch(() => setError('No se pudieron cargar las empresas.'))
   useEffect(() => {
@@ -213,7 +338,12 @@ export default function MasterPage({ me, devices, onChanged, onBack }: { me: Use
   }
 
   const enter = async (c: User) => {
-    if (!confirm(`Vas a entrar al portal de "${c.name}" para darle soporte. Para volver a tu cuenta Maestro tendrás que salir e iniciar sesión otra vez. ¿Continuar?`)) return
+    if (
+      !confirm(
+        `Vas a entrar al portal de "${c.name}" para darle soporte. Para volver a tu cuenta Maestro tendrás que salir e iniciar sesión otra vez. ¿Continuar?`,
+      )
+    )
+      return
     try {
       await loginAs(c.id)
       try {
@@ -284,6 +414,9 @@ export default function MasterPage({ me, devices, onChanged, onBack }: { me: Use
                     <button className="link" onClick={() => enter(c)} disabled={!!c.disabled} title="Entrar a su portal para darle soporte">
                       Entrar
                     </button>
+                    <button className="link" onClick={() => setViewing(c)}>
+                      Vehículos
+                    </button>
                     <button className="link" onClick={() => setEditing(c)}>
                       Editar
                     </button>
@@ -309,6 +442,17 @@ export default function MasterPage({ me, devices, onChanged, onBack }: { me: Use
             reload()
           }}
           onCancel={() => setEditing(null)}
+        />
+      )}
+      {viewing && (
+        <CompanyDevices
+          company={viewing}
+          devices={info[viewing.id]?.list ?? []}
+          onChanged={() => {
+            reload()
+            onChanged()
+          }}
+          onClose={() => setViewing(null)}
         />
       )}
       {creds && <Credentials {...creds} onClose={() => setCreds(null)} />}

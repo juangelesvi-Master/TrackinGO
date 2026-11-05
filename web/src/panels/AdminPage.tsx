@@ -28,7 +28,7 @@ const errorText = (err: unknown, fallback: string) => {
 
 // ---------------- Vehículos ----------------
 
-function DeviceForm({ device, odometerKm, onDone, onCancel }: { device: Device | null; odometerKm: number | null; onDone: () => void; onCancel: () => void }) {
+export function DeviceForm({ device, odometerKm, onDone, onCancel }: { device: Device | null; odometerKm: number | null; onDone: () => void; onCancel: () => void }) {
   const [name, setName] = useState(device?.name ?? '')
   const [uniqueId, setUniqueId] = useState(device?.uniqueId ?? '')
   const [phone, setPhone] = useState(device?.phone ?? '')
