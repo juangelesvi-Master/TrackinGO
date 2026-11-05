@@ -537,6 +537,10 @@ button.danger {
 .pin-stop {
   background: var(--warn);
 }
+.pin-geofence {
+  background: #7c3aed;
+  border-radius: 6px;
+}
 .pin-small {
   flex-shrink: 0;
   width: 22px;

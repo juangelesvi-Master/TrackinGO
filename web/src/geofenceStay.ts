@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
-import { formatDuration, getEvents, getRoute, type TraccarEvent } from './traccar'
+import { distance, wktToShape, type Shape } from './mapUtil'
+import { formatDuration, getEvents, getRoute, type Geofence, type Position, type TraccarEvent } from './traccar'
 
 // Cuánto tiempo estuvo un vehículo dentro de una geocerca y cuánto de ese tiempo estuvo detenido.
 // Se calcula al salir: busca la última entrada a esa misma geocerca y suma el tiempo entre puntos
@@ -69,4 +70,59 @@ export function useGeofenceStays(events: TraccarEvent[], limit = 30): Record<num
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ids])
   return stays
+}
+
+// --- Visitas a geocercas dentro de un recorrido (se calcula con la figura de cada geocerca) ---
+
+export interface Visit {
+  geofence: Geofence
+  enter: Position // primer punto dentro
+  exit: Position | null // primer punto fuera (null si el día terminó dentro)
+  inside: number // ms
+  stopped: number // ms
+}
+
+const MIN_VISIT = 60e3 // ignora pasadas de menos de 1 minuto
+
+function inShape(shape: Shape, lng: number, lat: number) {
+  if (shape.kind === 'circle') return distance(shape.center, [lng, lat]) <= shape.radius
+  // Punto en polígono (rayo hacia la derecha).
+  const pts = shape.points
+  let inside = false
+  for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+    const [xi, yi] = pts[i]
+    const [xj, yj] = pts[j]
+    if (yi > lat !== yj > lat && lng < ((xj - xi) * (lat - yi)) / (yj - yi) + xi) inside = !inside
+  }
+  return inside
+}
+
+const ms = (p: Position) => new Date(p.fixTime).getTime()
+
+/** Entradas a geocercas a lo largo del recorrido, con el tiempo dentro y el tiempo detenido. */
+export function routeVisits(points: Position[], geofences: Geofence[]): Visit[] {
+  const visits: Visit[] = []
+  for (const geofence of geofences) {
+    const shape = wktToShape(geofence.area)
+    if (!shape) continue
+    let start = -1
+    const close = (endIdx: number, exit: Position | null) => {
+      const enter = points[start]
+      const last = exit ?? points[endIdx]
+      let stopped = 0
+      for (let i = start + 1; i <= endIdx; i++) {
+        if (points[i - 1].speed < STOPPED_KNOTS && points[i].speed < STOPPED_KNOTS) stopped += ms(points[i]) - ms(points[i - 1])
+      }
+      const inside = ms(last) - ms(enter)
+      if (inside >= MIN_VISIT) visits.push({ geofence, enter, exit, inside, stopped: Math.min(stopped, inside) })
+      start = -1
+    }
+    points.forEach((p, i) => {
+      const inside = inShape(shape, p.longitude, p.latitude)
+      if (inside && start < 0) start = i
+      else if (!inside && start >= 0) close(i - 1, p)
+    })
+    if (start >= 0) close(points.length - 1, null)
+  }
+  return visits.sort((a, b) => ms(a.enter) - ms(b.enter))
 }

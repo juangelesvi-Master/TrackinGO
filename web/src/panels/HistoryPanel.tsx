@@ -2,7 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import * as maplibregl from 'maplibre-gl'
 import { distance, escapeHtml, pinElement, removeLayers, whenReady } from '../mapUtil'
 import { vehicleIconHtml, vehicleKind, type VehicleKind } from '../vehicleIcons'
-import { deleteRoute, formatDuration, formatTime, getPositions, getReport, getRoute, getStops, knotsToKmh, type Device, type Position, type Stop, type Trip } from '../traccar'
+import { routeVisits, type Visit } from '../geofenceStay'
+import { deleteRoute, formatDuration, formatTime, getGeofences, getPositions, getReport, getRoute, getStops, knotsToKmh, type Device, type Geofence, type Position, type Stop, type Trip } from '../traccar'
 
 interface Route {
   points: Position[]
@@ -81,6 +82,29 @@ function useRouteLayer(map: maplibregl.Map | null, route: Route | null, cursor: 
   }, [route, cursor])
 }
 
+const FLAG_SVG = '<svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true"><path fill="currentColor" d="M5 2h2v20H5zM8 3h11l-2.5 4L19 11H8z"/></svg>'
+
+function visitHtml(v: Visit) {
+  const out = v.exit ? `Salió ${formatTime(v.exit.fixTime)}` : 'Siguió dentro al terminar el día'
+  return `<strong>Geocerca: ${escapeHtml(v.geofence.name)}</strong><br/>Entró ${formatTime(v.enter.fixTime)} · ${out}<br/>Estuvo ${formatDuration(v.inside)} dentro<br/><strong>Detenido ${formatDuration(v.stopped)}</strong>`
+}
+
+/** Marcadores donde el vehículo entró a una geocerca, con el tiempo que estuvo detenido dentro. */
+function useVisitMarkers(map: maplibregl.Map | null, visits: Visit[]) {
+  useEffect(() => {
+    if (!map || !visits.length) return
+    const markers = visits.map((v) => {
+      const el = document.createElement('div')
+      el.className = 'pin pin-geofence'
+      el.innerHTML = FLAG_SVG
+      el.title = v.geofence.name
+      const popup = new maplibregl.Popup({ offset: 14, closeButton: false }).setHTML(visitHtml(v))
+      return new maplibregl.Marker({ element: el }).setLngLat([v.enter.longitude, v.enter.latitude]).setPopup(popup).addTo(map)
+    })
+    return () => markers.forEach((m) => m.remove())
+  }, [map, visits])
+}
+
 interface Props {
   map: maplibregl.Map | null
   devices: Device[]
@@ -101,6 +125,15 @@ export default function HistoryPanel({ map, devices, initialDeviceId, canDelete 
   const [speed, setSpeed] = useState(5)
 
   useRouteLayer(map, route, cursor, vehicleKind(devices.find((d) => d.id === deviceId)?.category))
+
+  const [geofences, setGeofences] = useState<Geofence[]>([])
+  useEffect(() => {
+    getGeofences()
+      .then(setGeofences)
+      .catch(() => {})
+  }, [])
+  const visits = useMemo(() => (route ? routeVisits(route.points, geofences) : []), [route, geofences])
+  useVisitMarkers(map, visits)
 
   // Reproducción: avanza punto por punto.
   useEffect(() => {
@@ -394,6 +427,27 @@ export default function HistoryPanel({ map, devices, initialDeviceId, canDelete 
               </li>
             ))}
           </ul>
+          {visits.length > 0 && (
+            <>
+              <h4 className="panel-pad list-title">Geocercas</h4>
+              <ul className="device-list">
+                {visits.map((v) => (
+                  <li key={v.geofence.id + v.enter.fixTime} onClick={() => map?.flyTo({ center: [v.enter.longitude, v.enter.latitude], zoom: 16 })}>
+                    <span className="pin pin-geofence pin-small" dangerouslySetInnerHTML={{ __html: FLAG_SVG }} />
+                    <div className="device-info">
+                      <div className="device-name">{v.geofence.name}</div>
+                      <div className="small">
+                        Detenido {formatDuration(v.stopped)} · {formatDuration(v.inside)} dentro
+                      </div>
+                      <div className="muted small">
+                        {formatTime(v.enter.fixTime)} – {v.exit ? formatTime(v.exit.fixTime) : 'fin del día'}
+                      </div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
         </>
       )}
 
