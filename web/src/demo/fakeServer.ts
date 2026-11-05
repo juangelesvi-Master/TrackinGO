@@ -51,7 +51,7 @@ function seed(): State {
     course: (i * 47) % 360,
     fixTime: devices[i].lastUpdate,
     address: null,
-    attributes: { totalDistance: 40000000 + i * 1500000, ignition: i % 5 !== 4 },
+    attributes: { totalDistance: 40000000 + i * 1500000, ignition: i % 5 !== 4, power: i === 6 ? 11.4 : 12.6 + (i % 3) * 0.6, battery: 4.1, rssi: 1 + (i % 5), sat: 6 + (i % 7), hours: (1200 + i * 90) * 3600000 },
   }))
   const brand = { name: 'Transportes Ruiz' }
   return {

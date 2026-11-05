@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { assignedDevice, knotsToKmh, timeAgo, type Device, type Driver, type Position } from '../traccar'
 import EngineControl from './EngineControl'
+import VehicleHealth from './VehicleHealth'
 
 const STATUS_LABEL: Record<Device['status'], string> = {
   online: 'En línea',
@@ -84,6 +85,7 @@ export default function LivePanel({ devices, positions, selectedId, onSelect, on
               <span className="muted">sin asignar</span>
             )}
           </div>
+          <VehicleHealth position={selectedPos} />
           {canHistory && (
             <button className="secondary" onClick={() => onHistory(selected.id)}>
               Ver historial de hoy

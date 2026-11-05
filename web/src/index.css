@@ -1288,3 +1288,45 @@ tfoot td {
 .map-expand:hover {
   background: #f2f2f2;
 }
+
+/* Ficha de salud del vehículo */
+.health {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
+  gap: 6px;
+}
+.health-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-size: 12px;
+}
+.health-item span {
+  color: var(--muted);
+  font-size: 11px;
+}
+.health-item.warn {
+  border-color: #f59e0b;
+  background: #f59e0b14;
+}
+.health-item.bad {
+  border-color: #dc2626;
+  background: #dc262614;
+}
+.signal {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 14px;
+}
+.signal i {
+  width: 4px;
+  border-radius: 1px;
+  background: var(--border);
+}
+.signal i.on {
+  background: #16a34a;
+}
