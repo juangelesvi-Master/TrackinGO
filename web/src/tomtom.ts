@@ -23,7 +23,7 @@ interface SearchResult {
 
 /** Busca lugares o direcciones, dando preferencia a los cercanos al centro del mapa. */
 export async function searchPlaces(query: string, near: { lat: number; lon: number }, signal?: AbortSignal): Promise<Place[]> {
-  const q = new URLSearchParams({ key: KEY!, language: 'es-MX', countrySet: 'MX', limit: '6', lat: String(near.lat), lon: String(near.lon), typeahead: 'true' })
+  const q = new URLSearchParams({ key: KEY!, language: 'es-419', countrySet: 'MX', limit: '6', lat: String(near.lat), lon: String(near.lon), typeahead: 'true' })
   const res = await fetch(`${API}/search/2/search/${encodeURIComponent(query)}.json?${q}`, { signal })
   if (!res.ok) throw new Error(`TomTom ${res.status}`)
   const data = (await res.json()) as { results: SearchResult[] }

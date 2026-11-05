@@ -43,7 +43,16 @@ export default function MapSearch({ getMap, devices, positions, selectedId }: Pr
           setResults(r)
           setError(r.length ? '' : 'No encontré ese lugar.')
         })
-        .catch((e) => e.name !== 'AbortError' && setError('No se pudo buscar. Revisa la llave de TomTom.'))
+        .catch((e: Error) => {
+          if (e.name === 'AbortError') return
+          // El código ayuda a saber qué falla: 403 = la llave no tiene el buscador activado.
+          const code = e.message.match(/\d{3}/)?.[0]
+          setError(
+            code === '403' || code === '401'
+              ? `TomTom rechazó la llave (${code}). Revisa que tenga activado "Search API".`
+              : `No se pudo buscar${code ? ` (error ${code})` : ''}.`,
+          )
+        })
     }, 350)
     return () => {
       clearTimeout(t)
