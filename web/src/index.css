@@ -1357,3 +1357,24 @@ tfoot td {
     transform: rotate(360deg);
   }
 }
+
+/* Lista de recorridos del historial. */
+.list-title {
+  margin: 14px 0 4px;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--muted, #6b7280);
+}
+.icon-button {
+  background: none;
+  border: 0;
+  padding: 6px;
+  margin-left: auto;
+  border-radius: 6px;
+  cursor: pointer;
+  display: inline-flex;
+}
+.icon-button:hover {
+  background: rgba(220, 38, 38, 0.1);
+}
