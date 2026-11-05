@@ -1263,3 +1263,28 @@ tfoot td {
 .eta-delay {
   color: #dc2626;
 }
+
+/* Botón para ampliar el mapa (esconde la lista de la izquierda) */
+.fleet.wide .sidebar {
+  display: none;
+}
+.map-expand {
+  position: absolute;
+  top: 118px;
+  right: 10px;
+  z-index: 3;
+  width: 29px;
+  height: 29px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: #fff;
+  color: #333;
+  box-shadow: 0 0 0 2px #0000001a;
+  cursor: pointer;
+}
+.map-expand:hover {
+  background: #f2f2f2;
+}
