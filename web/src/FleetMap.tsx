@@ -177,13 +177,15 @@ export default function FleetMap({ devices, positions, trail, selectedId, onSele
       } else if (fix > track.lastFix) {
         // Cada cuánto llegan los reportes de este GPS (promedio suave).
         const gap = Math.min(GLIDE_MAX_MS, Math.max(GLIDE_MS, now - track.lastArrival))
+        // Si pasó mucho sin noticias (la app estuvo en segundo plano), va directo a la posición actual.
+        const stale = now - track.lastArrival > 2 * GLIDE_MAX_MS
         track.interval = track.interval === GLIDE_MS ? gap : track.interval * 0.6 + gap * 0.4
         track.lastArrival = now
         track.lastFix = fix
         const points = fresh.map((q): [number, number] => [q.longitude, q.latitude])
         const follow = d.id === selectedRef.current
         // El mapa sigue al vehículo seleccionado mientras se mueve, salvo que lo estés arrastrando.
-        travel(marker, points, track.interval, frames.current, follow ? (at) => !m.isMoving() && m.jumpTo({ center: at }) : undefined)
+        travel(marker, stale ? points.slice(-1) : points, stale ? GLIDE_MS : track.interval, frames.current, follow ? (at) => !m.isMoving() && m.jumpTo({ center: at }) : undefined)
       }
       const el = marker.getElement()
       el.dataset.status = d.status

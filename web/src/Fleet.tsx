@@ -78,11 +78,35 @@ export default function Fleet({ user, onUser, onLogout }: { user: User; onUser: 
   }, [reloadDrivers])
 
 
+  // Cambiarlo vuelve a cargar todo desde el servidor y reabre la conexión en vivo.
+  const [reloadKey, setReloadKey] = useState(0)
+  const [refreshing, setRefreshing] = useState(false)
+  const refresh = useCallback(() => {
+    setRefreshing(true)
+    setReloadKey((k) => k + 1)
+  }, [])
+
+  // Al volver a la app después de un rato (por ejemplo, desde otra app en el celular), se actualiza sola.
+  useEffect(() => {
+    let hiddenAt = 0
+    const onVisibility = () => {
+      if (document.hidden) hiddenAt = Date.now()
+      else if (hiddenAt && Date.now() - hiddenAt > 30000) refresh()
+    }
+    document.addEventListener('visibilitychange', onVisibility)
+    window.addEventListener('online', refresh)
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibility)
+      window.removeEventListener('online', refresh)
+    }
+  }, [refresh])
+
   useEffect(() => {
     const mergeDevices = (list: Device[]) => setDevices((prev) => ({ ...prev, ...Object.fromEntries(list.map((d) => [d.id, d])) }))
     const mergePositions = (list: Position[]) =>
       setPositions((prev) => ({ ...prev, ...Object.fromEntries(list.map((p) => [p.deviceId, p])) }))
 
+    trail.clear()
     Promise.all([getDevices(), getPositions()])
       .then(([d, p]) => {
         mergeDevices(d)
@@ -102,6 +126,7 @@ export default function Fleet({ user, onUser, onLogout }: { user: User; onUser: 
       .catch((err) => {
         if (err instanceof AuthError) logoutRef.current()
       })
+      .finally(() => setRefreshing(false))
 
     return connectSocket((msg) => {
       if (msg.devices) mergeDevices(msg.devices)
@@ -117,7 +142,7 @@ export default function Fleet({ user, onUser, onLogout }: { user: User; onUser: 
         fresh.forEach((e) => setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== e.id)), 8000))
       }
     }, setLive)
-  }, [trail])
+  }, [trail, reloadKey])
 
   // Pestañas según los permisos del usuario.
   const perms = useMemo(() => permsOf(user), [user])
@@ -191,6 +216,11 @@ export default function Fleet({ user, onUser, onLogout }: { user: User; onUser: 
                 Maestro
               </button>
             )}
+            <button className={`link refresh ${refreshing ? 'spinning' : ''}`} onClick={refresh} disabled={refreshing} title="Actualizar" aria-label="Actualizar">
+              <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+                <path fill="currentColor" d="M17.65 6.35A7.95 7.95 0 0 0 12 4a8 8 0 1 0 7.73 10h-2.08A6 6 0 1 1 12 6c1.66 0 3.14.69 4.22 1.78L13 11h7V4l-2.35 2.35z" />
+              </svg>
+            </button>
             <button className="link" onClick={onLogout} title={user.email}>
               Salir
             </button>
