@@ -216,6 +216,11 @@ export function getRoute(deviceId: number, from: Date, to: Date): Promise<Positi
   return request<Position[]>(`/reports/route?${range(deviceId, from, to)}`)
 }
 
+/** Borra las posiciones guardadas de un vehículo entre dos fechas (no se puede deshacer). */
+export function deleteRoute(deviceId: number, from: Date, to: Date): Promise<void> {
+  return request<void>(`/positions?${range(deviceId, from, to)}`, { method: 'DELETE' })
+}
+
 /** Paradas que detectó Traccar entre dos fechas. */
 export function getStops(deviceId: number, from: Date, to: Date): Promise<Stop[]> {
   return request<Stop[]>(`/reports/stops?${range(deviceId, from, to)}`)

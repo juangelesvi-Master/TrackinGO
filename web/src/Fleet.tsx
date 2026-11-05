@@ -209,7 +209,7 @@ export default function Fleet({ user, onUser, onLogout }: { user: User; onUser: 
         {(tab === 'live' || fullPage) && (
           <LivePanel devices={devices} positions={positions} selectedId={selectedId} onSelect={setSelectedId} onHistory={openHistory} drivers={drivers} canHistory={perms.history} canEngine={perms.engine} />
         )}
-        {tab === 'history' && <HistoryPanel key={historyFor.n} map={map} devices={deviceList} initialDeviceId={historyFor.id ?? selectedId} />}
+        {tab === 'history' && <HistoryPanel key={historyFor.n} map={map} devices={deviceList} initialDeviceId={historyFor.id ?? selectedId} canDelete={perms.users} />}
         {tab === 'geofences' && <GeofencesPanel map={map} devices={deviceList} canEdit={perms.geofences} />}
         {tab === 'alerts' && <AlertsPanel user={user} onUser={onUser} devices={devices} events={events} canEdit={perms.geofences} />}
 

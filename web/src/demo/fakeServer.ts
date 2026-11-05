@@ -290,6 +290,7 @@ async function handle(method: string, url: URL, bodyText: string): Promise<Respo
     save()
     return reply(204)
   }
+  if (path === '/positions' && method === 'DELETE') return reply(204)
   if (path === '/positions') {
     const v = visibleDevices(me).map((d) => d.id)
     return reply(200, db.positions.filter((p) => v.includes(p.deviceId)))

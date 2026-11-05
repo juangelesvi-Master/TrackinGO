@@ -1330,3 +1330,15 @@ tfoot td {
 .signal i.on {
   background: #16a34a;
 }
+
+/* Borrar historial (administradores). */
+.danger-zone {
+  margin-top: 16px;
+  border-top: 1px solid var(--border);
+  padding-top: 12px;
+}
+.danger-zone .row-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
