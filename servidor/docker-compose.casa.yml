@@ -1,0 +1,98 @@
+# Traking GO en un servidor propio (en casa u oficina) publicado con Cloudflare Tunnel.
+# Los clientes entran a https://TU-DOMINIO sin abrir los puertos 80/443 del módem:
+# Cloudflare da el HTTPS y esconde la IP del lugar. Los rastreadores siguen entrando
+# directo por su puerto (5027 para Teltonika), que sí se abre en el módem.
+# Dentro de la red local también se puede entrar a:
+#   App web:                http://IP-DEL-SERVIDOR:8090
+#   Panel original Traccar: http://IP-DEL-SERVIDOR:8082
+# Uso: en servidor/.env pon DOMAIN, DB_PASSWORD y TUNNEL_TOKEN, y ejecuta
+#   docker compose -f docker-compose.casa.yml up -d --build
+# Ver GUIA.md → "Servidor propio con Cloudflare Tunnel".
+
+services:
+  db:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: traccar
+      POSTGRES_USER: traccar
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Falta DB_PASSWORD en .env}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U traccar"]
+      interval: 10s
+      retries: 10
+
+  traccar:
+    image: traccar/traccar:6.16
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      CONFIG_USE_ENVIRONMENT_VARIABLES: "true"
+      DATABASE_DRIVER: org.postgresql.Driver
+      DATABASE_URL: jdbc:postgresql://db:5432/traccar
+      DATABASE_USER: traccar
+      DATABASE_PASSWORD: ${DB_PASSWORD}
+      # Dirección pública de la app: Traccar la usa en los correos (p. ej. recuperar contraseña).
+      WEB_URL: https://${DOMAIN:?Falta DOMAIN en .env}
+      MAIL_SMTP_HOST: ${SMTP_HOST:-}
+      MAIL_SMTP_PORT: ${SMTP_PORT:-587}
+      MAIL_SMTP_STARTTLS_ENABLE: "true"
+      MAIL_SMTP_USERNAME: ${SMTP_USER:-}
+      MAIL_SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      MAIL_SMTP_FROM: ${SMTP_FROM:-}
+      MAIL_SMTP_FROM_NAME: Traking GO
+      DATABASE_HISTORY_DAYS: ${HISTORY_DAYS:-180}
+      NOTIFICATOR_TYPES: ${NOTIFICATOR_TYPES:-web,mail}
+      NOTIFICATOR_FIREBASE_SERVICE_ACCOUNT: ${FIREBASE_SERVICE_ACCOUNT:-}
+    ports:
+      # Panel original de Traccar en la red local (no abrir este puerto en el módem).
+      - "8082:8082"
+      # Teltonika. Agrega aquí el puerto de otras marcas si las usas (ver GUIA.md).
+      - "5027:5027"
+      - "5027:5027/udp"
+    volumes:
+      - traccar-logs:/opt/traccar/logs
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8082/api/health"]
+      interval: 1m
+      timeout: 5s
+      start_period: 2m
+      retries: 3
+
+  web:
+    build:
+      context: ../web
+      dockerfile: ../servidor/web.Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - traccar
+    environment:
+      # ":80" hace que Caddy sirva por HTTP simple; el HTTPS lo pone Cloudflare.
+      DOMAIN: ":80"
+      FIREBASE_WEB_CONFIG: ${FIREBASE_WEB_CONFIG:-}
+    ports:
+      # Acceso directo dentro de la red local (no abrir este puerto en el módem).
+      - "8090:80"
+    volumes:
+      - caddy-data:/data
+      - caddy-config:/config
+
+  # Túnel de Cloudflare: publica la app en https://DOMAIN sin abrir puertos web.
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN:?Falta TUNNEL_TOKEN en .env}
+    depends_on:
+      - web
+
+volumes:
+  db-data:
+  traccar-logs:
+  caddy-data:
+  caddy-config:
