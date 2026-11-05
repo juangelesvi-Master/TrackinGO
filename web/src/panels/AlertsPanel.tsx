@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { stayText, useGeofenceStays } from '../geofenceStay'
 import { eventText, isUrgent } from '../labels'
 import { myStaff, shareRules } from '../staff'
 import PhoneBox from './PhoneBox'
@@ -18,7 +19,7 @@ import {
 // Reglas que ofrecemos. Cada una es una "notificación" de Traccar que aplica a todos los vehículos.
 const RULES: { type: string; title: string; hint: string }[] = [
   { type: 'geofenceEnter', title: 'Entrada a geocerca', hint: 'Cuando un vehículo entra a una zona.' },
-  { type: 'geofenceExit', title: 'Salida de geocerca', hint: 'Cuando un vehículo sale de una zona.' },
+  { type: 'geofenceExit', title: 'Salida de geocerca', hint: 'Cuando un vehículo sale de una zona. Dice cuánto tiempo estuvo dentro y cuánto detenido.' },
   { type: 'deviceOverspeed', title: 'Exceso de velocidad', hint: 'Usa el límite de cada vehículo (se pone en Administración).' },
   { type: 'deviceOffline', title: 'Rastreador desconectado', hint: 'Cuando un equipo deja de reportar.' },
   { type: 'ignitionOn', title: 'Motor encendido', hint: 'Si el rastreador detecta la ignición.' },
@@ -45,6 +46,7 @@ export default function AlertsPanel({ user, onUser, devices, events, canEdit }: 
   const [busyType, setBusyType] = useState<string | null>(null)
   const [geofenceNames, setGeofenceNames] = useState<Record<number, string>>({})
   const [error, setError] = useState('')
+  const stays = useGeofenceStays(events)
 
   useEffect(() => {
     getNotifications().then(setRules).catch(() => setError('No se pudieron cargar las reglas.'))
@@ -105,6 +107,7 @@ export default function AlertsPanel({ user, onUser, devices, events, canEdit }: 
                 <span className={`dot ${isUrgent(e) ? 'urgent' : 'online'}`} />
                 <div className="device-info">
                   <div className="device-name">{what}</div>
+                  {stays[e.id] && <div className="small">{stayText(stays[e.id])}</div>}
                   <div className="muted small">
                     {vehicle} · {formatDateTime(e.eventTime)}
                   </div>

@@ -288,9 +288,10 @@ export const createNotification = (n: Partial<Notification>) => request<Notifica
 export const deleteNotification = (id: number) => request<void>(`/notifications/${id}`, { method: 'DELETE' })
 export const getNotificators = () => request<{ type: string }[]>('/notifications/notificators')
 
-export function getEvents(deviceIds: number[], from: Date, to: Date): Promise<TraccarEvent[]> {
+export function getEvents(deviceIds: number[], from: Date, to: Date, types: string[] = []): Promise<TraccarEvent[]> {
   const q = new URLSearchParams({ from: from.toISOString(), to: to.toISOString() })
   deviceIds.forEach((id) => q.append('deviceId', String(id)))
+  types.forEach((t) => q.append('type', t))
   return request<TraccarEvent[]>(`/reports/events?${q}`)
 }
 
