@@ -1,0 +1,11 @@
+# Dependencias y compilados
+node_modules/
+dist/
+dist-demo/
+android/build/
+
+# Secretos: nunca subirlos (el repositorio es público)
+.env
+android/keystore/
+*.jks
+*.keystore

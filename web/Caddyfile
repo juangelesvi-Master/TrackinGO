@@ -1,0 +1,24 @@
+# Sirve la app y reenvía /api (incluido el WebSocket en vivo) a Traccar.
+{$DOMAIN} {
+	encode zstd gzip
+
+	handle /api/* {
+		reverse_proxy traccar:8082
+	}
+
+	# Configuración pública de Firebase para los avisos en el celular (vacía = desactivados).
+	handle /firebase.json {
+		header Content-Type application/json
+		header Cache-Control no-cache
+		respond `{$FIREBASE_WEB_CONFIG}`
+	}
+
+	# El service worker no se guarda en caché, para que las actualizaciones lleguen enseguida.
+	header /sw.js Cache-Control no-cache
+
+	handle {
+		root * /srv
+		try_files {path} /index.html
+		file_server
+	}
+}

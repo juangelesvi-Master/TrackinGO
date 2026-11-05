@@ -1,0 +1,86 @@
+# Teesa Location: Traccar + base de datos + app web con HTTPS.
+# Uso: copia .env.example a .env, llénalo y ejecuta ./instalar.sh
+
+services:
+  db:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: traccar
+      POSTGRES_USER: traccar
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Falta DB_PASSWORD en .env}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U traccar"]
+      interval: 10s
+      retries: 10
+
+  traccar:
+    image: traccar/traccar:6.16
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      CONFIG_USE_ENVIRONMENT_VARIABLES: "true"
+      DATABASE_DRIVER: org.postgresql.Driver
+      DATABASE_URL: jdbc:postgresql://db:5432/traccar
+      DATABASE_USER: traccar
+      DATABASE_PASSWORD: ${DB_PASSWORD}
+      # Dirección pública de la app: Traccar la usa en los correos (p. ej. recuperar contraseña).
+      WEB_URL: https://${DOMAIN:?Falta DOMAIN en .env}
+      # Correo de salida (opcional). Si SMTP_HOST está vacío, no se envían correos.
+      MAIL_SMTP_HOST: ${SMTP_HOST:-}
+      MAIL_SMTP_PORT: ${SMTP_PORT:-587}
+      MAIL_SMTP_STARTTLS_ENABLE: "true"
+      MAIL_SMTP_USERNAME: ${SMTP_USER:-}
+      MAIL_SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      MAIL_SMTP_FROM: ${SMTP_FROM:-}
+      MAIL_SMTP_FROM_NAME: Traking GO
+      # Días de historial que se guardan. Cada noche Traccar borra posiciones y eventos más viejos
+      # (ajuste database.historyDays). 0 = guardar todo para siempre.
+      DATABASE_HISTORY_DAYS: ${HISTORY_DAYS:-180}
+      # Avisos en el celular con Firebase (opcional, ver GUIA.md). Para activarlos:
+      # NOTIFICATOR_TYPES=web,mail,firebase y FIREBASE_SERVICE_ACCOUNT con la clave en una línea.
+      NOTIFICATOR_TYPES: ${NOTIFICATOR_TYPES:-web,mail}
+      NOTIFICATOR_FIREBASE_SERVICE_ACCOUNT: ${FIREBASE_SERVICE_ACCOUNT:-}
+    ports:
+      # Panel original de Traccar, solo accesible desde el propio servidor (ver GUIA.md).
+      - "127.0.0.1:8082:8082"
+      # Puertos donde se conectan los rastreadores. Cuando sepas la marca, deja solo el suyo.
+      - "5000-5150:5000-5150"
+      - "5000-5150:5000-5150/udp"
+    volumes:
+      - traccar-logs:/opt/traccar/logs
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8082/api/health"]
+      interval: 1m
+      timeout: 5s
+      start_period: 2m
+      retries: 3
+
+  web:
+    build:
+      context: ../web
+      dockerfile: ../servidor/web.Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - traccar
+    environment:
+      DOMAIN: ${DOMAIN}
+      # Configuración pública de Firebase para la app (vacía = sin avisos en el celular).
+      FIREBASE_WEB_CONFIG: ${FIREBASE_WEB_CONFIG:-}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  db-data:
+  traccar-logs:
+  caddy-data:
+  caddy-config:
