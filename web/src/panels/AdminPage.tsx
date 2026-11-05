@@ -18,6 +18,7 @@ import MaintenanceTab from './MaintenanceTab'
 import { Modal } from './Modal'
 import UsersTab from './UsersTab'
 import PageTitle from './PageTitle'
+import { VEHICLE_KINDS, vehicleIconHtml, vehicleKind, type VehicleKind } from '../vehicleIcons'
 
 const errorText = (err: unknown, fallback: string) => {
   const msg = err instanceof Error ? err.message.toLowerCase() : ''
@@ -33,6 +34,7 @@ export function DeviceForm({ device, odometerKm, onDone, onCancel }: { device: D
   const [uniqueId, setUniqueId] = useState(device?.uniqueId ?? '')
   const [phone, setPhone] = useState(device?.phone ?? '')
   const [model, setModel] = useState(device?.model ?? '')
+  const [kind, setKind] = useState<VehicleKind>(vehicleKind(device?.category))
   const limit = device?.attributes?.speedLimit
   const [speedLimit, setSpeedLimit] = useState(typeof limit === 'number' ? String(knotsToKmh(limit)) : '')
   const [odometer, setOdometerKm] = useState(odometerKm != null ? String(odometerKm) : '')
@@ -46,7 +48,7 @@ export function DeviceForm({ device, odometerKm, onDone, onCancel }: { device: D
     const attributes = { ...(device?.attributes ?? {}) }
     if (speedLimit.trim()) attributes.speedLimit = kmhToKnots(Number(speedLimit))
     else delete attributes.speedLimit
-    const data = { name: name.trim(), uniqueId: uniqueId.trim(), phone: phone.trim() || null, model: model.trim() || null, attributes }
+    const data = { name: name.trim(), uniqueId: uniqueId.trim(), phone: phone.trim() || null, model: model.trim() || null, category: kind, attributes }
     try {
       if (device) await updateDevice({ ...device, ...data })
       else await createDevice(data)
@@ -66,6 +68,24 @@ export function DeviceForm({ device, odometerKm, onDone, onCancel }: { device: D
           Nombre o placa
           <input value={name} onChange={(e) => setName(e.target.value)} required autoFocus placeholder="Ej. Camión 12 · ABC-123" />
         </label>
+        <div className="kind-picker" role="radiogroup" aria-label="Tipo de vehículo">
+          <span>Tipo de vehículo</span>
+          <div>
+            {VEHICLE_KINDS.map((k) => (
+              <button
+                key={k.id}
+                type="button"
+                role="radio"
+                aria-checked={kind === k.id}
+                className={kind === k.id ? 'kind on' : 'kind'}
+                onClick={() => setKind(k.id)}
+              >
+                <span className="kind-icon" dangerouslySetInnerHTML={{ __html: vehicleIconHtml(k.id) }} />
+                {k.name}
+              </button>
+            ))}
+          </div>
+        </div>
         <label>
           Identificador del rastreador (IMEI)
           <input value={uniqueId} onChange={(e) => setUniqueId(e.target.value)} required placeholder="Viene en la etiqueta del equipo" />

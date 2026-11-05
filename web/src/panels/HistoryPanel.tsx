@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import * as maplibregl from 'maplibre-gl'
 import { distance, escapeHtml, pinElement, removeLayers, whenReady } from '../mapUtil'
+import { vehicleIconHtml, vehicleKind, type VehicleKind } from '../vehicleIcons'
 import { deleteRoute, formatDuration, formatTime, getPositions, getReport, getRoute, getStops, knotsToKmh, type Device, type Position, type Stop, type Trip } from '../traccar'
 
 interface Route {
@@ -25,7 +26,7 @@ function routeKm(points: Position[]) {
 }
 
 /** Dibuja la ruta, las paradas y el vehículo que se mueve al reproducir. */
-function useRouteLayer(map: maplibregl.Map | null, route: Route | null, cursor: number) {
+function useRouteLayer(map: maplibregl.Map | null, route: Route | null, cursor: number, kind: VehicleKind) {
   const playback = useRef<maplibregl.Marker | null>(null)
 
   useEffect(() => {
@@ -54,7 +55,7 @@ function useRouteLayer(map: maplibregl.Map | null, route: Route | null, cursor: 
       const el = document.createElement('div')
       el.className = 'vehicle-marker playback'
       el.dataset.status = 'online'
-      el.innerHTML = '<div class="arrow"></div><div class="label"></div>'
+      el.innerHTML = `<div class="arrow">${vehicleIconHtml(kind)}</div><div class="label"></div>`
       playback.current = new maplibregl.Marker({ element: el }).setLngLat(coords[0]).addTo(map)
       markers.push(playback.current)
 
@@ -67,7 +68,7 @@ function useRouteLayer(map: maplibregl.Map | null, route: Route | null, cursor: 
       playback.current = null
       removeLayers(map, ['route-line', 'route-casing'], ['route'])
     }
-  }, [map, route])
+  }, [map, route, kind])
 
   useEffect(() => {
     const p = route?.points[cursor]
@@ -99,7 +100,7 @@ export default function HistoryPanel({ map, devices, initialDeviceId, canDelete 
   const [playing, setPlaying] = useState(false)
   const [speed, setSpeed] = useState(5)
 
-  useRouteLayer(map, route, cursor)
+  useRouteLayer(map, route, cursor, vehicleKind(devices.find((d) => d.id === deviceId)?.category))
 
   // Reproducción: avanza punto por punto.
   useEffect(() => {

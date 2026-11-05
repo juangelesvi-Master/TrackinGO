@@ -7,6 +7,7 @@ import { removeLayers, setStyleReady, whenReady } from './mapUtil'
 import MapSearch from './MapSearch'
 import { hasTomTom, incidentTiles } from './tomtom'
 import { hasTraffic, MAP_STYLES, saveStyle, savedStyle, saveTraffic, savedTraffic, trafficTiles } from './mapStyles'
+import { vehicleIconHtml, vehicleKind } from './vehicleIcons'
 
 // Vite no encuentra solo el "worker" de MapLibre; le indicamos dónde está.
 maplibregl.setWorkerUrl(workerUrl)
@@ -189,6 +190,11 @@ export default function FleetMap({ devices, positions, trail, selectedId, onSele
       }
       const el = marker.getElement()
       el.dataset.status = d.status
+      const kind = vehicleKind(d.category)
+      if (el.dataset.kind !== kind) {
+        el.dataset.kind = kind
+        el.querySelector<HTMLElement>('.arrow')!.innerHTML = vehicleIconHtml(kind)
+      }
       el.querySelector<HTMLElement>('.arrow')!.style.transform = `rotate(${p.course}deg)`
       el.querySelector<HTMLElement>('.label')!.textContent = d.name
       marker.getPopup()?.setHTML(popupHtml(d, p))
