@@ -20,6 +20,8 @@ interface Props {
   showLive: boolean
   /** Entrega el mapa a las otras pantallas para que dibujen encima (rutas, geocercas). */
   onMap: (map: maplibregl.Map | null) => void
+  /** Puntos intermedios que llegaron en vivo y aún no se dibujan, por vehículo. El mapa los va tomando. */
+  trail: Map<number, Position[]>
   /** Mapa ampliado (sin la lista de la izquierda). */
   wide: boolean
   onToggleWide: () => void
@@ -42,35 +44,68 @@ function popupHtml(d: Device, p: Position) {
     <span class="muted">${p.latitude.toFixed(5)}, ${p.longitude.toFixed(5)}</span>`
 }
 
-/** Tiempo que tarda un marcador en deslizarse a su nueva posición. */
+/** Duración mínima del deslizamiento de un marcador. */
 const GLIDE_MS = 900
+/** Duración máxima: si el GPS tarda más en reportar, el marcador se detiene a esperar. */
+const GLIDE_MAX_MS = 45000
 /** Más lejos que esto (en grados, unos 2 km) el marcador salta en vez de deslizarse. */
 const GLIDE_MAX = 0.02
 
-/** Desliza un marcador hasta su nueva posición, para que el vehículo se vea avanzar en lugar de brincar. */
-function glide(marker: maplibregl.Marker, to: [number, number], frames: Map<maplibregl.Marker, number>) {
+/** Lo que el mapa recuerda de cada marcador para moverlo sin brincos. */
+interface Track {
+  /** Hora (del GPS) del último punto ya dibujado. */
+  lastFix: number
+  /** Cuándo llegó el último reporte a la app. */
+  lastArrival: number
+  /** Cada cuánto suele reportar este GPS, en ms. */
+  interval: number
+}
+
+/**
+ * Mueve un marcador por los puntos que mandó el GPS, a velocidad pareja y tardando
+ * más o menos lo mismo que tarda en llegar el siguiente reporte. Así el vehículo se ve
+ * avanzar sin pausas aunque el GPS mande sus puntos en paquetes cada 20 o 30 segundos.
+ */
+function travel(marker: maplibregl.Marker, points: [number, number][], ms: number, frames: Map<maplibregl.Marker, number>, onStep?: (at: [number, number]) => void) {
   cancelAnimationFrame(frames.get(marker) ?? 0)
   const from = marker.getLngLat()
-  const [lng, lat] = to
-  if (Math.abs(lng - from.lng) > GLIDE_MAX || Math.abs(lat - from.lat) > GLIDE_MAX || document.hidden) {
-    marker.setLngLat(to)
+  const path: [number, number][] = [[from.lng, from.lat], ...points]
+  const last = path[path.length - 1]
+  const far = path.some(([lng, lat]) => Math.abs(lng - from.lng) > GLIDE_MAX || Math.abs(lat - from.lat) > GLIDE_MAX)
+  if (far || document.hidden) {
+    marker.setLngLat(last)
+    onStep?.(last)
+    return
+  }
+  // Largo de cada tramo, para avanzar a velocidad pareja por toda la ruta.
+  const lengths = path.slice(1).map(([lng, lat], i) => Math.hypot(lng - path[i][0], lat - path[i][1]))
+  const total = lengths.reduce((a, b) => a + b, 0)
+  if (total === 0) {
+    marker.setLngLat(last)
     return
   }
   const start = performance.now()
   const step = (now: number) => {
-    const t = Math.min(1, (now - start) / GLIDE_MS)
-    marker.setLngLat([from.lng + (lng - from.lng) * t, from.lat + (lat - from.lat) * t])
+    const t = Math.min(1, (now - start) / ms)
+    let left = t * total
+    let i = 0
+    while (i < lengths.length - 1 && left > lengths[i]) left -= lengths[i++]
+    const f = lengths[i] ? Math.min(1, left / lengths[i]) : 1
+    const at: [number, number] = [path[i][0] + (path[i + 1][0] - path[i][0]) * f, path[i][1] + (path[i + 1][1] - path[i][1]) * f]
+    marker.setLngLat(at)
+    onStep?.(at)
     if (t < 1) frames.set(marker, requestAnimationFrame(step))
     else frames.delete(marker)
   }
   frames.set(marker, requestAnimationFrame(step))
 }
 
-export default function FleetMap({ devices, positions, selectedId, onSelect, showLive, onMap, wide, onToggleWide }: Props) {
+export default function FleetMap({ devices, positions, trail, selectedId, onSelect, showLive, onMap, wide, onToggleWide }: Props) {
   const container = useRef<HTMLDivElement>(null)
   const map = useRef<maplibregl.Map | null>(null)
   const markers = useRef(new Map<number, maplibregl.Marker>())
   const frames = useRef(new Map<maplibregl.Marker, number>())
+  const tracks = useRef(new Map<number, Track>())
   const selectedRef = useRef(selectedId)
   const fitted = useRef(false)
   const [styleId, setStyleId] = useState(() => savedStyle().id)
@@ -129,12 +164,26 @@ export default function FleetMap({ devices, positions, selectedId, onSelect, sho
         marker.setPopup(new maplibregl.Popup({ offset: 18, closeButton: false }))
         markers.current.set(d.id, marker)
       }
-      const target: [number, number] = [p.longitude, p.latitude]
-      const before = marker.getLngLat()
-      if (before.lng !== target[0] || before.lat !== target[1]) {
-        glide(marker, target, frames.current)
+      const fix = new Date(p.fixTime).getTime()
+      const now = performance.now()
+      const track = tracks.current.get(d.id)
+      // Puntos nuevos en orden: los intermedios del paquete y al final la posición actual.
+      const fresh = (trail.get(d.id) ?? []).filter((q) => !track || new Date(q.fixTime).getTime() > track.lastFix)
+      trail.delete(d.id)
+      if (!fresh.some((q) => q.id === p.id)) fresh.push(p)
+      fresh.sort((a, b) => new Date(a.fixTime).getTime() - new Date(b.fixTime).getTime())
+      if (!track) {
+        tracks.current.set(d.id, { lastFix: fix, lastArrival: now, interval: GLIDE_MS })
+      } else if (fix > track.lastFix) {
+        // Cada cuánto llegan los reportes de este GPS (promedio suave).
+        const gap = Math.min(GLIDE_MAX_MS, Math.max(GLIDE_MS, now - track.lastArrival))
+        track.interval = track.interval === GLIDE_MS ? gap : track.interval * 0.6 + gap * 0.4
+        track.lastArrival = now
+        track.lastFix = fix
+        const points = fresh.map((q): [number, number] => [q.longitude, q.latitude])
+        const follow = d.id === selectedRef.current
         // El mapa sigue al vehículo seleccionado mientras se mueve, salvo que lo estés arrastrando.
-        if (d.id === selectedRef.current && !m.isMoving()) m.easeTo({ center: target, duration: GLIDE_MS, easing: (t) => t })
+        travel(marker, points, track.interval, frames.current, follow ? (at) => !m.isMoving() && m.jumpTo({ center: at }) : undefined)
       }
       const el = marker.getElement()
       el.dataset.status = d.status
@@ -156,7 +205,7 @@ export default function FleetMap({ devices, positions, selectedId, onSelect, sho
       for (const id of seen) bounds.extend(markers.current.get(id)!.getLngLat())
       m.fitBounds(bounds, { padding: 60, maxZoom: 15, duration: 0 })
     }
-  }, [devices, positions])
+  }, [devices, positions, trail])
 
   // Al seleccionar un vehículo, centra el mapa y abre su ficha.
   useEffect(() => {
