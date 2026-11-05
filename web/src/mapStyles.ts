@@ -57,6 +57,29 @@ export const MAP_STYLES: MapStyleOption[] = [
   { id: 'satellite', name: 'Satélite', hint: 'Foto aérea con nombres de calles', style: satellite },
 ]
 
+// --- Tráfico en vivo (TomTom) ---
+// Solo aparece si el servidor tiene llave: TOMTOM_KEY en servidor/.env (VITE_TOMTOM_KEY al compilar).
+const TOMTOM_KEY = import.meta.env.VITE_TOMTOM_KEY as string | undefined
+export const hasTraffic = !!TOMTOM_KEY
+/** Teselas de flujo vehicular: verde fluido, naranja lento, rojo atorado. */
+export const trafficTiles = () => [`https://api.tomtom.com/traffic/map/4/tile/flow/relative0/{z}/{x}/{y}.png?key=${TOMTOM_KEY}&tileSize=256`]
+
+const TRAFFIC_PREF = 'teesaTraffic'
+export function savedTraffic() {
+  try {
+    return localStorage.getItem(TRAFFIC_PREF) === '1'
+  } catch {
+    return false
+  }
+}
+export function saveTraffic(on: boolean) {
+  try {
+    localStorage.setItem(TRAFFIC_PREF, on ? '1' : '0')
+  } catch {
+    // No pasa nada si no se puede guardar.
+  }
+}
+
 const KEY = 'teesaMapStyle'
 
 export function savedStyle(): MapStyleOption {
