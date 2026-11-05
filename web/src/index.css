@@ -1148,3 +1148,118 @@ tfoot td {
 .back-button:hover {
   background: var(--bg);
 }
+
+/* Buscador de lugares y hora de llegada (TomTom) */
+.map-search {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  z-index: 4;
+  width: min(340px, calc(100% - 70px));
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.map-search-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--muted);
+  box-shadow: 0 2px 6px #0002;
+}
+.map-search-box input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  padding: 10px 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+}
+.map-search-results,
+.map-search-card,
+.map-search-note {
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel);
+  box-shadow: 0 4px 14px #0003;
+}
+.map-search-note {
+  padding: 10px 12px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.map-search-results button {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.map-search-results button:hover {
+  background: #0000000d;
+}
+.map-search-results small {
+  color: var(--muted);
+}
+.map-search-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px;
+  max-height: 50vh;
+  overflow-y: auto;
+}
+.eta-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 8px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.eta-row:hover:not(:disabled),
+.eta-row.active {
+  border-color: #2563eb;
+  background: #2563eb12;
+}
+.eta-row:disabled {
+  cursor: default;
+}
+.eta-name {
+  font-weight: 600;
+}
+.eta-time {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  text-align: right;
+}
+.eta-time small {
+  color: var(--muted);
+}
+.eta-delay {
+  color: #dc2626;
+}
