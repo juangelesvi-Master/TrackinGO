@@ -54,6 +54,9 @@ services:
       # Teltonika. Agrega aquí el puerto de otras marcas si las usas (ver GUIA.md).
       - "5027:5027"
       - "5027:5027/udp"
+      # Ruptela.
+      - "5046:5046"
+      - "5046:5046/udp"
     volumes:
       - traccar-logs:/opt/traccar/logs
     healthcheck:

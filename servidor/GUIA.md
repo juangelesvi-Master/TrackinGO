@@ -82,6 +82,7 @@ Cada rastreador se configura, casi siempre por SMS, con dos datos: la **direcci√
 |---|---|
 | Concox, JimiIoT (GT06) | 5023 |
 | Teltonika | 5027 |
+| Ruptela | 5046 |
 | Coban (GPS103) | 5001 |
 | TK103 | 5002 |
 | Queclink | 5004 |
