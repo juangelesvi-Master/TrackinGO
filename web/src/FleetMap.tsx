@@ -1,9 +1,11 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import * as maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url'
 import { knotsToKmh, timeAgo, type Device, type Position } from './traccar'
 import { removeLayers, setStyleReady, whenReady } from './mapUtil'
+import MapSearch from './MapSearch'
+import { hasTomTom, incidentTiles } from './tomtom'
 import { hasTraffic, MAP_STYLES, saveStyle, savedStyle, saveTraffic, savedTraffic, trafficTiles } from './mapStyles'
 
 // Vite no encuentra solo el "worker" de MapLibre; le indicamos dónde está.
@@ -173,12 +175,17 @@ export default function FleetMap({ devices, positions, selectedId, onSelect, sho
     const m = map.current
     if (!m || !hasTraffic) return
     whenReady(m, () => {
-      if (!traffic) return removeLayers(m, ['traffic'], ['traffic'])
+      if (!traffic) return removeLayers(m, ['traffic', 'incidents'], ['traffic', 'incidents'])
       if (m.getSource('traffic')) return
       m.addSource('traffic', { type: 'raster', tiles: trafficTiles(), tileSize: 256, attribution: 'Tráfico © TomTom' })
       m.addLayer({ id: 'traffic', type: 'raster', source: 'traffic', paint: { 'raster-opacity': 0.85 } })
+      // Accidentes, obras y cierres, con sus iconos.
+      m.addSource('incidents', { type: 'raster', tiles: incidentTiles(), tileSize: 256 })
+      m.addLayer({ id: 'incidents', type: 'raster', source: 'incidents' })
     })
   }, [traffic])
+
+  const getMap = useCallback(() => map.current, [])
 
   function toggleTraffic() {
     setTraffic((on) => {
@@ -216,6 +223,7 @@ export default function FleetMap({ devices, positions, selectedId, onSelect, sho
   return (
     <div className={showLive ? 'map' : 'map hide-live'}>
       <div ref={container} className="map-canvas" />
+      {hasTomTom && showLive && <MapSearch getMap={getMap} devices={devices} positions={positions} selectedId={selectedId} />}
       <div className="style-picker">
         <button type="button" className="style-toggle" onClick={() => setPickerOpen((o) => !o)} aria-expanded={pickerOpen} title="Cambiar tipo de mapa">
           <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
