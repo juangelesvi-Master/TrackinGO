@@ -582,6 +582,9 @@ button.danger {
 }
 
 /* Ventanas emergentes */
+.modal.wide {
+  max-width: 760px;
+}
 .modal-backdrop {
   position: fixed;
   inset: 0;
