@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type * as maplibregl from 'maplibre-gl'
 import FleetMap from './FleetMap'
+import { stayText, useGeofenceStays } from './geofenceStay'
 import { eventText, isUrgent } from './labels'
 import { permsOf } from './permissions'
 import AdminPage from './panels/AdminPage'
@@ -11,7 +12,7 @@ import LivePanel from './panels/LivePanel'
 import MasterPage from './panels/MasterPage'
 import ReportsPage from './panels/ReportsPage'
 import { brandOf } from './brand'
-import { AuthError, SUPPORT_KEY, connectSocket, getDevices, getDrivers, getEvents, getPositions, type Device, type Driver, type Position, type TraccarEvent, type User } from './traccar'
+import { AuthError, SUPPORT_KEY, connectSocket, getDevices, getDrivers, getEvents, getGeofences, getPositions, type Device, type Driver, type Position, type TraccarEvent, type User } from './traccar'
 
 type Tab = 'live' | 'history' | 'reports' | 'geofences' | 'alerts' | 'admin' | 'master'
 
@@ -40,6 +41,8 @@ export default function Fleet({ user, onUser, onLogout }: { user: User; onUser: 
   const [events, setEvents] = useState<TraccarEvent[]>([])
   const [drivers, setDrivers] = useState<Driver[]>([])
   const [toasts, setToasts] = useState<TraccarEvent[]>([])
+  const toastStays = useGeofenceStays(toasts)
+  const [geofenceNames, setGeofenceNames] = useState<Record<number, string>>({})
   const [unread, setUnread] = useState(0)
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [tab, setTab] = useState<Tab>('live')
@@ -107,6 +110,9 @@ export default function Fleet({ user, onUser, onLogout }: { user: User; onUser: 
       setPositions((prev) => ({ ...prev, ...Object.fromEntries(list.map((p) => [p.deviceId, p])) }))
 
     trail.clear()
+    getGeofences()
+      .then((list) => setGeofenceNames(Object.fromEntries(list.map((g) => [g.id, g.name]))))
+      .catch(() => {})
     Promise.all([getDevices(), getPositions()])
       .then(([d, p]) => {
         mergeDevices(d)
@@ -139,7 +145,7 @@ export default function Fleet({ user, onUser, onLogout }: { user: User; onUser: 
         setEvents((prev) => mergeEvents(prev, fresh))
         setUnread((n) => n + fresh.length)
         setToasts((prev) => [...fresh, ...prev].slice(0, 3))
-        fresh.forEach((e) => setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== e.id)), 8000))
+        fresh.forEach((e) => setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== e.id)), e.type === 'geofenceExit' ? 15000 : 8000))
       }
     }, setLive)
   }, [trail, reloadKey])
@@ -268,10 +274,11 @@ export default function Fleet({ user, onUser, onLogout }: { user: User; onUser: 
 
       <div className="toasts">
         {toasts.map((e) => {
-          const { vehicle, what } = eventText(e, devices)
+          const { vehicle, what } = eventText(e, devices, geofenceNames[e.geofenceId])
           return (
             <button key={e.id} className={`toast ${isUrgent(e) ? 'urgent' : ''}`} onClick={() => openTab('alerts')}>
               <strong>{what}</strong>
+              {toastStays[e.id] && <span>{stayText(toastStays[e.id])}</span>}
               <span>{vehicle}</span>
             </button>
           )

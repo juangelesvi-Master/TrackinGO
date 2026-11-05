@@ -230,6 +230,8 @@ function reportsRaw(kind: string, url: URL): Obj[] {
     if (url.searchParams.get('type') === 'deviceOverspeed')
       return ids.filter((id) => id % 3 === 0).flatMap((id) => [1, 2].map((k) => ({ id: 7000 + id * 10 + k, type: 'deviceOverspeed', eventTime: new Date(t0 + k * 3600e3).toISOString(), deviceId: id, positionId: 0, geofenceId: 0, attributes: { speed: 52 + k * 4, speedLimit: 43.2 } })))
     const now = Date.now()
+    if (url.searchParams.get('type') === 'geofenceEnter')
+      return ids.map((id) => ({ id: 600 + id, type: 'geofenceEnter', eventTime: new Date(now - (id === 1 ? 7200e3 : 5400e3)).toISOString(), deviceId: id, positionId: 0, geofenceId: 1, attributes: {} }))
     return [
       { id: 501, type: 'deviceOverspeed', eventTime: new Date(now - 3600e3).toISOString(), deviceId: 3, positionId: 0, geofenceId: 0, attributes: { speed: 60 } },
       { id: 502, type: 'geofenceExit', eventTime: new Date(now - 1800e3).toISOString(), deviceId: 1, positionId: 0, geofenceId: 1, attributes: {} },
