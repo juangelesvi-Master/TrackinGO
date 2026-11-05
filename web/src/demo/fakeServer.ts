@@ -40,7 +40,7 @@ function seed(): State {
     status: i % 5 === 4 ? 'offline' : 'online',
     lastUpdate: new Date(now - (i % 5 === 4 ? 7200e3 : 20e3)).toISOString(),
     positionId: i + 1,
-    category: ['car', 'truck', 'van'][i % 3],
+    category: ['car', 'bus', 'van'][i % 3],
     attributes: { speedLimit: 43.2 },
   }))
   const positions = BASE.map(([lat, lon], i) => ({
