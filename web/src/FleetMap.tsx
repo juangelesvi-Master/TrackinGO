@@ -37,10 +37,36 @@ function popupHtml(d: Device, p: Position) {
     <span class="muted">${p.latitude.toFixed(5)}, ${p.longitude.toFixed(5)}</span>`
 }
 
+/** Tiempo que tarda un marcador en deslizarse a su nueva posición. */
+const GLIDE_MS = 900
+/** Más lejos que esto (en grados, unos 2 km) el marcador salta en vez de deslizarse. */
+const GLIDE_MAX = 0.02
+
+/** Desliza un marcador hasta su nueva posición, para que el vehículo se vea avanzar en lugar de brincar. */
+function glide(marker: maplibregl.Marker, to: [number, number], frames: Map<maplibregl.Marker, number>) {
+  cancelAnimationFrame(frames.get(marker) ?? 0)
+  const from = marker.getLngLat()
+  const [lng, lat] = to
+  if (Math.abs(lng - from.lng) > GLIDE_MAX || Math.abs(lat - from.lat) > GLIDE_MAX || document.hidden) {
+    marker.setLngLat(to)
+    return
+  }
+  const start = performance.now()
+  const step = (now: number) => {
+    const t = Math.min(1, (now - start) / GLIDE_MS)
+    marker.setLngLat([from.lng + (lng - from.lng) * t, from.lat + (lat - from.lat) * t])
+    if (t < 1) frames.set(marker, requestAnimationFrame(step))
+    else frames.delete(marker)
+  }
+  frames.set(marker, requestAnimationFrame(step))
+}
+
 export default function FleetMap({ devices, positions, selectedId, onSelect, showLive, onMap }: Props) {
   const container = useRef<HTMLDivElement>(null)
   const map = useRef<maplibregl.Map | null>(null)
   const markers = useRef(new Map<number, maplibregl.Marker>())
+  const frames = useRef(new Map<maplibregl.Marker, number>())
+  const selectedRef = useRef(selectedId)
   const fitted = useRef(false)
   const [styleId, setStyleId] = useState(() => savedStyle().id)
   const [pickerOpen, setPickerOpen] = useState(false)
@@ -52,6 +78,7 @@ export default function FleetMap({ devices, positions, selectedId, onSelect, sho
   useEffect(() => {
     onSelectRef.current = onSelect
     onMapRef.current = onMap
+    selectedRef.current = selectedId
   })
 
   useEffect(() => {
@@ -96,7 +123,13 @@ export default function FleetMap({ devices, positions, selectedId, onSelect, sho
         marker.setPopup(new maplibregl.Popup({ offset: 18, closeButton: false }))
         markers.current.set(d.id, marker)
       }
-      marker.setLngLat([p.longitude, p.latitude])
+      const target: [number, number] = [p.longitude, p.latitude]
+      const before = marker.getLngLat()
+      if (before.lng !== target[0] || before.lat !== target[1]) {
+        glide(marker, target, frames.current)
+        // El mapa sigue al vehículo seleccionado mientras se mueve, salvo que lo estés arrastrando.
+        if (d.id === selectedRef.current && !m.isMoving()) m.easeTo({ center: target, duration: GLIDE_MS, easing: (t) => t })
+      }
       const el = marker.getElement()
       el.dataset.status = d.status
       el.querySelector<HTMLElement>('.arrow')!.style.transform = `rotate(${p.course}deg)`
