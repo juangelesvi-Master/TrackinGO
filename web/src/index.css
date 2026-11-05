@@ -1124,6 +1124,8 @@ tfoot td {
 .sw-light { background: linear-gradient(135deg, #fafafa 40%, #d4d4d4 41% 46%, #fafafa 47% 70%, #dbeafe 71%); }
 .sw-dark { background: linear-gradient(135deg, #1f2937 40%, #4b5563 41% 46%, #1f2937 47% 70%, #0f172a 71%); }
 .sw-satellite { background: radial-gradient(circle at 30% 30%, #6b8e4e, #3f5e2f 45%, #2d3f2a 70%, #4a5d6b); }
+.sw-google { background: conic-gradient(#4285f4 0 25%, #ea4335 0 50%, #fbbc05 0 75%, #34a853 0); }
+.sw-google-sat { background: radial-gradient(circle at 30% 30%, #6b8e4e, #3f5e2f 45%, #2d3f2a 70%), conic-gradient(#4285f4 0 25%, #ea4335 0 50%, #fbbc05 0 75%, #34a853 0); background-size: 100% 100%; box-shadow: inset 0 -4px 0 #4285f4; }
 
 /* Título de pantallas completas con botón para volver */
 .page-title {

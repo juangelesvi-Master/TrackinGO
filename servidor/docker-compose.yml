@@ -66,6 +66,7 @@ services:
       dockerfile: ../servidor/web.Dockerfile
       args:
         VITE_TOMTOM_KEY: ${TOMTOM_KEY:-}
+        VITE_GOOGLE_MAPS_KEY: ${GOOGLE_MAPS_KEY:-}
     restart: unless-stopped
     depends_on:
       - traccar

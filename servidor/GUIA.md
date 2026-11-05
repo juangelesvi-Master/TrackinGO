@@ -175,6 +175,16 @@ Para que las alertas lleguen aunque la app esté cerrada se usa Firebase de Goog
 
 En iPhone los avisos solo funcionan con la app instalada en la pantalla de inicio (iOS 16.4 o más nuevo).
 
+### Mapas de Google
+
+En el botón de tipo de mapa pueden aparecer **Google** y **Google satélite**. Necesitan una llave de Google:
+
+1. Entra a https://console.cloud.google.com, crea un proyecto y agrega una tarjeta (Google da una cuota gratis cada mes).
+2. En "APIs y servicios → Biblioteca" activa **Map Tiles API**.
+3. En "Credenciales" crea una **clave de API**. En sus restricciones elige "Sitios web" y pon `https://TU-DOMINIO/*`, y en "Restricciones de API" deja solo Map Tiles API.
+4. En "Cuotas" ponle un límite diario para que no haya sorpresas en el cobro.
+5. Pon la llave en `servidor/.env` como `GOOGLE_MAPS_KEY=...` y vuelve a compilar la web (`docker compose ... up -d --build web`).
+
 ### Actualizar la app cuando haya cambios
 
 Sube la carpeta `web` nueva al servidor y ejecuta:

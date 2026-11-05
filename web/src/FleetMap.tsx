@@ -6,7 +6,7 @@ import { knotsToKmh, timeAgo, type Device, type Position } from './traccar'
 import { removeLayers, setStyleReady, whenReady } from './mapUtil'
 import MapSearch from './MapSearch'
 import { hasTomTom, incidentTiles } from './tomtom'
-import { hasTraffic, MAP_STYLES, saveStyle, savedStyle, saveTraffic, savedTraffic, trafficTiles } from './mapStyles'
+import { hasTraffic, MAP_STYLES, saveStyle, savedStyle, saveTraffic, savedTraffic, trafficTiles, type MapStyleOption } from './mapStyles'
 import { vehicleIconHtml, vehicleKind } from './vehicleIcons'
 
 // Vite no encuentra solo el "worker" de MapLibre; le indicamos dónde está.
@@ -115,6 +115,7 @@ export default function FleetMap({ devices, positions, trail, selectedId, onSele
   // Fuentes del mapa base actual; las demás son nuestras (rutas, geocercas) y se conservan al cambiarlo.
   const baseSources = useRef<Set<string> | null>(null)
   const carried = useRef(new Set<string>())
+  const styleRequest = useRef(0)
   const onSelectRef = useRef(onSelect)
   const onMapRef = useRef(onMap)
   useEffect(() => {
@@ -123,10 +124,45 @@ export default function FleetMap({ devices, positions, trail, selectedId, onSele
     selectedRef.current = selectedId
   })
 
+  async function applyStyle(option: MapStyleOption) {
+    const request = ++styleRequest.current
+    let style = option.style
+    if (option.load) {
+      try {
+        style = await option.load()
+      } catch {
+        // La llave de Google no sirve o se acabó la cuota: se regresa al mapa normal.
+        if (request !== styleRequest.current) return
+        alert('No se pudo cargar el mapa de Google. Se muestra el mapa normal.')
+        setStyleId(MAP_STYLES[0].id)
+        saveStyle(MAP_STYLES[0].id)
+        option = MAP_STYLES[0]
+        style = option.style
+      }
+    }
+    const m = map.current
+    // Si mientras tanto se eligió otro mapa, este ya no se pone.
+    if (!m || request !== styleRequest.current) return
+    setStyleReady(m, false)
+    m.setStyle(style, {
+      diff: false,
+      // Pasa al mapa nuevo las capas que dibujamos encima (rutas, geocercas).
+      transformStyle: (prev, next) => {
+        const base = baseSources.current ?? new Set<string>()
+        const keep = Object.entries(prev?.sources ?? {}).filter(([sid]) => !base.has(sid) && !(sid in next.sources))
+        carried.current = new Set(keep.map(([sid]) => sid))
+        const layers = (prev?.layers ?? []).filter((l) => 'source' in l && carried.current.has(l.source as string))
+        return { ...next, sources: { ...next.sources, ...Object.fromEntries(keep) }, layers: [...next.layers, ...layers] }
+      },
+    })
+  }
+
   useEffect(() => {
+    const first = savedStyle()
     const m = new maplibregl.Map({
       container: container.current!,
-      style: savedStyle().style,
+      // Los mapas de Google tardan un momento en estar listos: mientras, se ve el normal.
+      style: first.load ? MAP_STYLES[0].style : first.style,
       center: [-99.13, 19.43],
       zoom: 4,
     })
@@ -138,6 +174,7 @@ export default function FleetMap({ devices, positions, trail, selectedId, onSele
     m.addControl(new maplibregl.NavigationControl(), 'top-right')
     map.current = m
     onMapRef.current(m)
+    if (first.load) applyStyle(first)
     const current = markers.current
     return () => {
       onMapRef.current(null)
@@ -262,24 +299,13 @@ export default function FleetMap({ devices, positions, trail, selectedId, onSele
 
   function changeStyle(id: string) {
     setPickerOpen(false)
-    const m = map.current
     const option = MAP_STYLES.find((s) => s.id === id)
-    if (!m || !option || id === styleId) return
+    if (!map.current || !option || id === styleId) return
     setStyleId(id)
     saveStyle(id)
-    setStyleReady(m, false)
-    m.setStyle(option.style, {
-      diff: false,
-      // Pasa al mapa nuevo las capas que dibujamos encima (rutas, geocercas).
-      transformStyle: (prev, next) => {
-        const base = baseSources.current ?? new Set<string>()
-        const keep = Object.entries(prev?.sources ?? {}).filter(([sid]) => !base.has(sid) && !(sid in next.sources))
-        carried.current = new Set(keep.map(([sid]) => sid))
-        const layers = (prev?.layers ?? []).filter((l) => 'source' in l && carried.current.has(l.source as string))
-        return { ...next, sources: { ...next.sources, ...Object.fromEntries(keep) }, layers: [...next.layers, ...layers] }
-      },
-    })
+    applyStyle(option)
   }
+
 
   useEffect(() => {
     if (!showLive) for (const marker of markers.current.values()) if (marker.getPopup()?.isOpen()) marker.togglePopup()
