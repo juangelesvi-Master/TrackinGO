@@ -1,11 +1,13 @@
-# Traking GO para Coolify (servidor de pruebas en casa o cualquier servidor con Coolify).
-# Igual que docker-compose.yml, pero sin ocupar los puertos 80/443, que en Coolify
-# ya usa su propio proxy. La app se abre por HTTP en la red local:
-#   App web:               http://IP-DEL-SERVIDOR:8090
+# Traking GO en un servidor propio (en casa u oficina) publicado con Cloudflare Tunnel.
+# Los clientes entran a https://TU-DOMINIO sin abrir los puertos 80/443 del módem:
+# Cloudflare da el HTTPS y esconde la IP del lugar. Los rastreadores siguen entrando
+# directo por su puerto (5027 para Teltonika), que sí se abre en el módem.
+# Dentro de la red local también se puede entrar a:
+#   App web:                http://IP-DEL-SERVIDOR:8090
 #   Panel original Traccar: http://IP-DEL-SERVIDOR:8082
-# En Coolify: + New → Public Repository → Build Pack "Docker Compose"
-#   → Docker Compose Location: /servidor/docker-compose.coolify.yml
-# Variables que pide Coolify: DB_PASSWORD (obligatoria) y WEB_URL.
+# Uso: en servidor/.env pon DOMAIN, DB_PASSWORD y TUNNEL_TOKEN, y ejecuta
+#   docker compose -f docker-compose.casa.yml up -d --build
+# Ver GUIA.md → "Servidor propio con Cloudflare Tunnel".
 
 services:
   db:
@@ -14,7 +16,7 @@ services:
     environment:
       POSTGRES_DB: traccar
       POSTGRES_USER: traccar
-      POSTGRES_PASSWORD: ${DB_PASSWORD:?Falta DB_PASSWORD}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Falta DB_PASSWORD en .env}
     volumes:
       - db-data:/var/lib/postgresql/data
     healthcheck:
@@ -34,8 +36,8 @@ services:
       DATABASE_URL: jdbc:postgresql://db:5432/traccar
       DATABASE_USER: traccar
       DATABASE_PASSWORD: ${DB_PASSWORD}
-      # Dirección con la que se abre la app (se usa en los correos).
-      WEB_URL: ${WEB_URL:-http://localhost:8090}
+      # Dirección pública de la app: Traccar la usa en los correos (p. ej. recuperar contraseña).
+      WEB_URL: https://${DOMAIN:?Falta DOMAIN en .env}
       MAIL_SMTP_HOST: ${SMTP_HOST:-}
       MAIL_SMTP_PORT: ${SMTP_PORT:-587}
       MAIL_SMTP_STARTTLS_ENABLE: "true"
@@ -69,15 +71,25 @@ services:
     depends_on:
       - traccar
     environment:
-      # ":80" hace que Caddy sirva por HTTP simple, sin pedir certificado.
+      # ":80" hace que Caddy sirva por HTTP simple; el HTTPS lo pone Cloudflare.
       DOMAIN: ":80"
       FIREBASE_WEB_CONFIG: ${FIREBASE_WEB_CONFIG:-}
     ports:
-      # 8090 porque el 8080 lo usa el proxy de Coolify.
+      # Acceso directo dentro de la red local (no abrir este puerto en el módem).
       - "8090:80"
     volumes:
       - caddy-data:/data
       - caddy-config:/config
+
+  # Túnel de Cloudflare: publica la app en https://DOMAIN sin abrir puertos web.
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN:?Falta TUNNEL_TOKEN en .env}
+    depends_on:
+      - web
 
 volumes:
   db-data:

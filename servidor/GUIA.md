@@ -194,23 +194,41 @@ Si el candado HTTPS no aparece, casi siempre el dominio todavía no apunta a la 
 
 ---
 
-## Servidor de pruebas en casa (Coolify)
+## Servidor propio con Cloudflare Tunnel (en casa u oficina)
 
-Para probar antes de pagar un droplet se puede usar un servidor en casa que ya tenga Coolify. Se usa `docker-compose.coolify.yml`, que no ocupa los puertos 80/443 de Coolify y no necesita dominio.
+En lugar de rentar un droplet se puede usar un servidor propio. Con Cloudflare Tunnel los clientes entran a `https://tu-dominio.com` **sin abrir los puertos 80/443** del módem (muchos proveedores de casa los bloquean). Cloudflare pone el HTTPS y esconde la IP del lugar. Usa `docker-compose.casa.yml`.
 
-1. En Coolify: **+ New → Public Repository**, pega la dirección de este repositorio y elige el Build Pack **Docker Compose**.
-2. En **Docker Compose Location** pon `/servidor/docker-compose.coolify.yml`.
-3. En **Environment Variables** llena `DB_PASSWORD` (una contraseña larga) y `WEB_URL` (por ejemplo `http://192.168.1.109:8090`).
-4. Dale **Deploy**.
+### Lo que necesitas antes
 
-Quedan así, dentro de la red de la casa:
+1. El servidor con **Ubuntu 24.04 y Docker** (`curl -fsSL https://get.docker.com | sudo sh`).
+2. Un **dominio propio** agregado a una cuenta gratis de **Cloudflare**.
+3. El **puerto 5027** (Teltonika) abierto en el módem hacia la IP del servidor, y esa IP fija en el módem (DHCP estático). Si el módem no da IP pública, los rastreadores no podrán llegar.
+
+### Crear el túnel
+
+1. En Cloudflare entra a **Zero Trust → Networks → Tunnels → Create a tunnel**, tipo **Cloudflared**, y ponle un nombre (por ejemplo `trackingo`).
+2. En la pantalla de instalación copia el **token** (el texto largo después de `--token`). No instales nada más: el túnel ya viene en el compose.
+3. En **Public Hostname** agrega: Domain = tu dominio (o un subdominio como `gps`), Service **HTTP**, URL `web:80`. Guarda.
+
+### Arrancar
+
+```bash
+git clone https://github.com/juangelesvi-Master/TrackinGO.git
+cd TrackinGO/servidor
+cp .env.example .env
+nano .env    # DOMAIN=tu-dominio.com, DB_PASSWORD=..., y agrega TUNNEL_TOKEN=el-token
+sudo docker compose -f docker-compose.casa.yml up -d --build
+```
+
+La primera vez tarda unos minutos porque compila la app. Después:
 
 | Qué | Dirección |
 |---|---|
-| App web de Traking GO | `http://IP-DEL-SERVIDOR:8090` |
-| Panel original de Traccar | `http://IP-DEL-SERVIDOR:8082` |
-| Rastreadores Teltonika | puerto `5027` (ábrelo en el módem hacia el servidor) |
+| App para tus clientes | `https://tu-dominio.com` |
+| App dentro de la red local | `http://IP-DEL-SERVIDOR:8090` |
+| Panel original de Traccar (solo red local) | `http://IP-DEL-SERVIDOR:8082` |
+| Rastreadores Teltonika | tu IP pública o un nombre de DuckDNS, puerto `5027` |
 
-La cuenta Maestro se crea igual que en el Paso 5, pero entrando directo a `http://IP-DEL-SERVIDOR:8082`.
+La cuenta Maestro se crea igual que en el Paso 5, pero entrando directo a `http://IP-DEL-SERVIDOR:8082`. Para actualizar la app después: `git pull` y el mismo `docker compose ... up -d --build`.
 
-> Sin HTTPS, el celular no deja instalar la app ni recibir avisos push. Para eso hace falta el servidor con dominio.
+> Si la IP de la casa cambia, los rastreadores deben apuntar a un nombre que se actualice solo (por ejemplo DuckDNS). La app web no se ve afectada, porque va por el túnel.
