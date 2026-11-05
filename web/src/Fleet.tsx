@@ -33,6 +33,8 @@ function mergeEvents(a: TraccarEvent[], b: TraccarEvent[]) {
 export default function Fleet({ user, onUser, onLogout }: { user: User; onUser: (u: User) => void; onLogout: () => void }) {
   const [devices, setDevices] = useState<Record<number, Device>>({})
   const [positions, setPositions] = useState<Record<number, Position>>({})
+  // Puntos que llegan en vivo, para que el mapa recorra el camino y no brinque al último.
+  const [trail] = useState(() => new Map<number, Position[]>())
   // Mapa ampliado: esconde la lista de la izquierda.
   const [wide, setWide] = useState(false)
   const [events, setEvents] = useState<TraccarEvent[]>([])
@@ -103,7 +105,10 @@ export default function Fleet({ user, onUser, onLogout }: { user: User; onUser: 
 
     return connectSocket((msg) => {
       if (msg.devices) mergeDevices(msg.devices)
-      if (msg.positions) mergePositions(msg.positions)
+      if (msg.positions) {
+        for (const p of msg.positions) trail.set(p.deviceId, [...(trail.get(p.deviceId) ?? []), p].slice(-50))
+        mergePositions(msg.positions)
+      }
       if (msg.events?.length) {
         const fresh = msg.events
         setEvents((prev) => mergeEvents(prev, fresh))
@@ -112,7 +117,7 @@ export default function Fleet({ user, onUser, onLogout }: { user: User; onUser: 
         fresh.forEach((e) => setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== e.id)), 8000))
       }
     }, setLive)
-  }, [])
+  }, [trail])
 
   // Pestañas según los permisos del usuario.
   const perms = useMemo(() => permsOf(user), [user])
@@ -218,6 +223,7 @@ export default function Fleet({ user, onUser, onLogout }: { user: User; onUser: 
         <FleetMap
           devices={devices}
           positions={positions}
+          trail={trail}
           selectedId={selectedId}
           onSelect={setSelectedId}
           showLive={tab !== 'history'}
