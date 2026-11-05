@@ -3,8 +3,8 @@ import * as maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-worker.mjs?url'
 import { knotsToKmh, timeAgo, type Device, type Position } from './traccar'
-import { setStyleReady } from './mapUtil'
-import { MAP_STYLES, saveStyle, savedStyle } from './mapStyles'
+import { removeLayers, setStyleReady, whenReady } from './mapUtil'
+import { hasTraffic, MAP_STYLES, saveStyle, savedStyle, saveTraffic, savedTraffic, trafficTiles } from './mapStyles'
 
 // Vite no encuentra solo el "worker" de MapLibre; le indicamos dónde está.
 maplibregl.setWorkerUrl(workerUrl)
@@ -70,6 +70,7 @@ export default function FleetMap({ devices, positions, selectedId, onSelect, sho
   const fitted = useRef(false)
   const [styleId, setStyleId] = useState(() => savedStyle().id)
   const [pickerOpen, setPickerOpen] = useState(false)
+  const [traffic, setTraffic] = useState(() => hasTraffic && savedTraffic())
   // Fuentes del mapa base actual; las demás son nuestras (rutas, geocercas) y se conservan al cambiarlo.
   const baseSources = useRef<Set<string> | null>(null)
   const carried = useRef(new Set<string>())
@@ -167,6 +168,25 @@ export default function FleetMap({ devices, positions, selectedId, onSelect, sho
     if (!marker.getPopup()?.isOpen()) marker.togglePopup()
   }, [selectedId])
 
+  // Capa de tráfico en vivo encima del mapa base (se conserva al cambiar de mapa).
+  useEffect(() => {
+    const m = map.current
+    if (!m || !hasTraffic) return
+    whenReady(m, () => {
+      if (!traffic) return removeLayers(m, ['traffic'], ['traffic'])
+      if (m.getSource('traffic')) return
+      m.addSource('traffic', { type: 'raster', tiles: trafficTiles(), tileSize: 256, attribution: 'Tráfico © TomTom' })
+      m.addLayer({ id: 'traffic', type: 'raster', source: 'traffic', paint: { 'raster-opacity': 0.85 } })
+    })
+  }, [traffic])
+
+  function toggleTraffic() {
+    setTraffic((on) => {
+      saveTraffic(!on)
+      return !on
+    })
+  }
+
   function changeStyle(id: string) {
     setPickerOpen(false)
     const m = map.current
@@ -203,6 +223,17 @@ export default function FleetMap({ devices, positions, selectedId, onSelect, sho
           </svg>
           {current.name}
         </button>
+        {hasTraffic && (
+          <button type="button" className={traffic ? 'style-toggle traffic-toggle on' : 'style-toggle traffic-toggle'} onClick={toggleTraffic} aria-pressed={traffic} title="Mostrar el tráfico en vivo">
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+              <path
+                fill="currentColor"
+                d="M9 2h6a2 2 0 0 1 2 2v1h3l-3 3v1h3l-3 3v1h3l-3 3v1a2 2 0 0 1-2 2h-1v2h-4v-2H9a2 2 0 0 1-2-2v-1l-3-3h3v-1L4 9h3V8L4 5h3V4a2 2 0 0 1 2-2zm3 3a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm0 5a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm0 5a2 2 0 1 0 0 4 2 2 0 0 0 0-4z"
+              />
+            </svg>
+            Tráfico
+          </button>
+        )}
         {pickerOpen && (
           <ul className="style-list" role="menu">
             {MAP_STYLES.map((s) => (

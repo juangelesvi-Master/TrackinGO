@@ -67,6 +67,8 @@ services:
     build:
       context: ../web
       dockerfile: ../servidor/web.Dockerfile
+      args:
+        VITE_TOMTOM_KEY: ${TOMTOM_KEY:-}
     restart: unless-stopped
     depends_on:
       - traccar
