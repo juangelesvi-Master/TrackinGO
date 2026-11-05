@@ -169,7 +169,18 @@ function crud(me: Obj, key: 'geofences' | 'notifications' | 'maintenance' | 'dri
   return reply(405)
 }
 
+/** Rangos de historial borrados en esta sesión de demo. */
+const deletedRanges: [number, number][] = []
+const isDeleted = (t: number) => deletedRanges.some(([a, b]) => t >= a && t <= b)
+
 function reports(kind: string, url: URL) {
+  const all = reportsRaw(kind, url)
+  if (kind === 'route') return all.filter((p: Obj) => !isDeleted(new Date(p.fixTime).getTime()))
+  if (kind === 'trips') return all.filter((t: Obj) => !isDeleted(new Date(t.startTime).getTime()) && !isDeleted(new Date(t.endTime).getTime()))
+  return all
+}
+
+function reportsRaw(kind: string, url: URL): Obj[] {
   const ids = url.searchParams.getAll('deviceId').map(Number)
   const from = new Date(url.searchParams.get('from') ?? Date.now()).getTime()
   const to = new Date(url.searchParams.get('to') ?? Date.now()).getTime()
@@ -290,7 +301,10 @@ async function handle(method: string, url: URL, bodyText: string): Promise<Respo
     save()
     return reply(204)
   }
-  if (path === '/positions' && method === 'DELETE') return reply(204)
+  if (path === '/positions' && method === 'DELETE') {
+    deletedRanges.push([new Date(url.searchParams.get('from')!).getTime(), new Date(url.searchParams.get('to')!).getTime()])
+    return reply(204)
+  }
   if (path === '/positions') {
     const v = visibleDevices(me).map((d) => d.id)
     return reply(200, db.positions.filter((p) => v.includes(p.deviceId)))
