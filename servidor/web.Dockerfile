@@ -7,6 +7,9 @@ COPY . .
 # Llave de TomTom para la capa de tráfico (opcional; sin ella no sale el botón).
 ARG VITE_TOMTOM_KEY=""
 ENV VITE_TOMTOM_KEY=$VITE_TOMTOM_KEY
+# Llave de Google Maps (Map Tiles API) para los mapas de Google (opcional; sin ella no salen).
+ARG VITE_GOOGLE_MAPS_KEY=""
+ENV VITE_GOOGLE_MAPS_KEY=$VITE_GOOGLE_MAPS_KEY
 RUN npm run build
 
 FROM caddy:2-alpine
