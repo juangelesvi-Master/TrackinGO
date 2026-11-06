@@ -13,6 +13,14 @@ export default defineConfig(({ mode }) => {
     build: {
       rolldownOptions: {
         output: {
+          // Librerías grandes en archivos aparte: casi no cambian entre versiones, así el
+          // navegador las reusa de su caché cuando actualizamos la app.
+          advancedChunks: {
+            groups: [
+              { name: 'maplibre', test: /node_modules[\\/]maplibre-gl/ },
+              { name: 'react', test: /node_modules[\\/](react|react-dom|scheduler)[\\/]/ },
+            ],
+          },
           // El "worker" del mapa sale como .mjs y algunos hostings lo mandan con un tipo
           // que el navegador rechaza (el mapa queda en blanco). Como .js funciona en todos.
           assetFileNames: (asset) =>

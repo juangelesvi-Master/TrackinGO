@@ -2,6 +2,16 @@
 {$DOMAIN} {
 	encode zstd gzip
 
+	# Cabeceras de seguridad: evitan que otra página meta la app en un marco (clickjacking),
+	# que el navegador adivine tipos de archivo y que se filtre la dirección completa a otros sitios.
+	header {
+		X-Content-Type-Options nosniff
+		X-Frame-Options SAMEORIGIN
+		Referrer-Policy strict-origin-when-cross-origin
+		Permissions-Policy "geolocation=(self), camera=(), microphone=(), payment=()"
+		-Server
+	}
+
 	handle /api/* {
 		reverse_proxy traccar:8082
 	}

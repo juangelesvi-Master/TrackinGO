@@ -9,8 +9,16 @@
 #   docker compose -f docker-compose.casa.yml up -d --build
 # Ver GUIA.md → "Servidor propio con Cloudflare Tunnel".
 
+# Registros de Docker: máximo 3 archivos de 10 MB por servicio, para no llenar el disco.
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   db:
+    logging: *logging
     image: postgres:17
     restart: unless-stopped
     environment:
@@ -25,6 +33,7 @@ services:
       retries: 10
 
   traccar:
+    logging: *logging
     image: traccar/traccar:6.16
     restart: unless-stopped
     depends_on:
@@ -38,6 +47,8 @@ services:
       DATABASE_PASSWORD: ${DB_PASSWORD}
       # Dirección pública de la app: Traccar la usa en los correos (p. ej. recuperar contraseña).
       WEB_URL: https://${DOMAIN:?Falta DOMAIN en .env}
+      # Solo la app propia puede usar la API desde el navegador (CORS).
+      WEB_ORIGIN: https://${DOMAIN}
       MAIL_SMTP_HOST: ${SMTP_HOST:-}
       MAIL_SMTP_PORT: ${SMTP_PORT:-587}
       MAIL_SMTP_STARTTLS_ENABLE: "true"
@@ -67,6 +78,7 @@ services:
       retries: 3
 
   web:
+    logging: *logging
     build:
       context: ../web
       dockerfile: ../servidor/web.Dockerfile
@@ -89,6 +101,7 @@ services:
 
   # Túnel de Cloudflare: publica la app en https://DOMAIN sin abrir puertos web.
   tunnel:
+    logging: *logging
     image: cloudflare/cloudflared:latest
     restart: unless-stopped
     command: tunnel --no-autoupdate run

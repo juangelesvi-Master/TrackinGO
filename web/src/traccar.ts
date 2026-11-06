@@ -143,16 +143,33 @@ export interface Server {
 
 export class AuthError extends Error {}
 
+/** El servidor no contestó a tiempo o no hay conexión. */
+export class NetworkError extends Error {}
+
+/** Tiempo máximo de espera por respuesta (los reportes largos pueden tardar). */
+const TIMEOUT_MS = 60_000
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`/api${path}`, {
-    credentials: 'include',
-    ...init,
-    headers: { Accept: 'application/json', ...init?.headers },
-  })
+  let res: Response
+  try {
+    res = await fetch(`/api${path}`, {
+      credentials: 'include',
+      signal: init?.signal ?? AbortSignal.timeout(TIMEOUT_MS),
+      ...init,
+      headers: { Accept: 'application/json', ...init?.headers },
+    })
+  } catch (err) {
+    if (err instanceof DOMException && err.name === 'AbortError' && init?.signal?.aborted) throw err
+    throw new NetworkError('Sin conexión con el servidor')
+  }
   if (res.status === 401) throw new AuthError('No autorizado')
-  if (!res.ok) throw new Error((await res.text()) || `Error ${res.status}`)
+  if (!res.ok) throw new Error((await res.text().catch(() => '')) || `Error ${res.status}`)
   const text = await res.text()
-  return (text ? JSON.parse(text) : undefined) as T
+  try {
+    return (text ? JSON.parse(text) : undefined) as T
+  } catch {
+    throw new Error(`Respuesta inválida del servidor (${res.status})`)
+  }
 }
 
 export function getSession(): Promise<User> {
@@ -174,6 +191,7 @@ export const loginAs = (userId: number) => request<User>(`/session/${userId}`)
 export const SUPPORT_KEY = 'teesaSupport'
 
 export function logout(): Promise<void> {
+  geofenceCache = null
   return request<void>('/session', { method: 'DELETE' })
 }
 
@@ -278,9 +296,20 @@ export const addLinks = (links: Link[]) => (links.length ? request<void>('/permi
 export const removeLinks = (links: Link[]) => (links.length ? request<void>('/permissions/bulk', json('DELETE', links)) : Promise.resolve())
 
 // --- Geocercas ---
-export const getGeofences = (deviceId?: number) => request<Geofence[]>(deviceId ? `/geofences?deviceId=${deviceId}` : '/geofences')
-export const createGeofence = (g: Partial<Geofence>) => request<Geofence>('/geofences', json('POST', g))
-export const deleteGeofence = (id: number) => request<void>(`/geofences/${id}`, { method: 'DELETE' })
+// Varias pantallas piden la lista de geocercas casi al mismo tiempo: se comparte la misma
+// respuesta durante 30 segundos y se olvida en cuanto se crea o borra una.
+let geofenceCache: { at: number; list: Promise<Geofence[]> } | null = null
+export function getGeofences(deviceId?: number): Promise<Geofence[]> {
+  if (deviceId) return request<Geofence[]>(`/geofences?deviceId=${deviceId}`)
+  if (!geofenceCache || Date.now() - geofenceCache.at > 30_000) {
+    const list = request<Geofence[]>('/geofences')
+    geofenceCache = { at: Date.now(), list }
+    list.catch(() => (geofenceCache = null))
+  }
+  return geofenceCache.list
+}
+export const createGeofence = (g: Partial<Geofence>) => ((geofenceCache = null), request<Geofence>('/geofences', json('POST', g)))
+export const deleteGeofence = (id: number) => ((geofenceCache = null), request<void>(`/geofences/${id}`, { method: 'DELETE' }))
 
 // --- Alertas ---
 export const getNotifications = () => request<Notification[]>('/notifications')
@@ -317,14 +346,31 @@ export function connectSocket(onMessage: (msg: SocketMessage) => void, onStatus:
   let retry: ReturnType<typeof setTimeout> | undefined
   let closed = false
 
+  // Si se cae, reintenta cada vez más espaciado (5 s, 10 s, 20 s… hasta 1 min) para no
+  // saturar el servidor cuando está apagado.
+  let wait = 5000
   const open = () => {
     const proto = location.protocol === 'https:' ? 'wss' : 'ws'
     socket = new WebSocket(`${proto}://${location.host}/api/socket`)
-    socket.onopen = () => onStatus(true)
-    socket.onmessage = (e) => onMessage(JSON.parse(e.data))
+    socket.onopen = () => {
+      wait = 5000
+      onStatus(true)
+    }
+    socket.onmessage = (e) => {
+      let msg: SocketMessage
+      try {
+        msg = JSON.parse(e.data)
+      } catch {
+        return // mensaje dañado: se ignora
+      }
+      onMessage(msg)
+    }
     socket.onclose = () => {
       onStatus(false)
-      if (!closed) retry = setTimeout(open, 5000)
+      if (!closed) {
+        retry = setTimeout(open, wait)
+        wait = Math.min(wait * 2, 60_000)
+      }
     }
   }
   open()
