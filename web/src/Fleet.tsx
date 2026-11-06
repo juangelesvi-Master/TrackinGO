@@ -251,7 +251,7 @@ export default function Fleet({ user, onUser, onLogout }: { user: User; onUser: 
           )}
           {tab === 'history' && <HistoryPanel key={historyFor.n} map={map} devices={deviceList} initialDeviceId={historyFor.id ?? selectedId} canDelete={perms.users} />}
           {tab === 'geofences' && <GeofencesPanel map={map} devices={deviceList} canEdit={perms.geofences} />}
-          {tab === 'alerts' && <AlertsPanel user={user} onUser={onUser} devices={devices} events={events} canEdit={perms.geofences} />}
+          {tab === 'alerts' && <AlertsPanel user={user} onUser={onUser} devices={devices} drivers={drivers} events={events} canEdit={perms.geofences} />}
         </ErrorBoundary>
 
         <footer className="muted small live">

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { stayText, useGeofenceStays } from '../geofenceStay'
 import { eventText, isUrgent } from '../labels'
 import { myStaff, shareRules } from '../staff'
@@ -10,7 +10,9 @@ import {
   getGeofences,
   getNotificators,
   getNotifications,
+  assignedDevice,
   type Device,
+  type Driver,
   type Notification,
   type TraccarEvent,
   type User,
@@ -34,11 +36,14 @@ interface Props {
   onUser: (u: User) => void
   canEdit: boolean
   devices: Record<number, Device>
+  drivers: Driver[]
   events: TraccarEvent[]
 }
 
-export default function AlertsPanel({ user, onUser, devices, events, canEdit }: Props) {
+export default function AlertsPanel({ user, onUser, devices, drivers, events, canEdit }: Props) {
   const [tab, setTab] = useState<'recent' | 'rules'>('recent')
+  // Filtro de avisos: '' = todos, 'v:ID' = un vehículo, 'c:ID' = un conductor (avisos de su vehículo asignado).
+  const [filter, setFilter] = useState('')
   const [rules, setRules] = useState<Notification[]>([])
   const [mailAvailable, setMailAvailable] = useState(false)
   const [mail, setMail] = useState(false)
@@ -47,6 +52,20 @@ export default function AlertsPanel({ user, onUser, devices, events, canEdit }: 
   const [geofenceNames, setGeofenceNames] = useState<Record<number, string>>({})
   const [error, setError] = useState('')
   const stays = useGeofenceStays(events)
+
+  const deviceOptions = useMemo(() => Object.values(devices).sort((a, b) => a.name.localeCompare(b.name)), [devices])
+  const driverOptions = useMemo(() => [...drivers].sort((a, b) => a.name.localeCompare(b.name)), [drivers])
+  const filterDriver = filter.startsWith('c:') ? drivers.find((d) => d.id === Number(filter.slice(2))) : undefined
+  const filterDeviceId = filter.startsWith('v:') ? Number(filter.slice(2)) : filterDriver ? assignedDevice(filterDriver) : null
+  const shown = useMemo(() => {
+    if (!filter) return events
+    return events.filter(
+      (e) =>
+        (filterDeviceId != null && e.deviceId === filterDeviceId) ||
+        // Cambio de chofer: también cuenta si el aviso trae la tarjeta de este conductor.
+        (filterDriver && e.attributes?.driverUniqueId === filterDriver.uniqueId),
+    )
+  }, [events, filter, filterDeviceId, filterDriver])
 
   useEffect(() => {
     getNotifications().then(setRules).catch(() => setError('No se pudieron cargar las reglas.'))
@@ -98,9 +117,41 @@ export default function AlertsPanel({ user, onUser, devices, events, canEdit }: 
         </button>
       </div>
 
+      {tab === 'recent' && (deviceOptions.length > 1 || driverOptions.length > 0) && (
+        <div className="alert-filter">
+          <select value={filter} onChange={(e) => setFilter(e.target.value)} aria-label="Filtrar avisos">
+            <option value="">Todos los vehículos y conductores</option>
+            <optgroup label="Vehículo">
+              {deviceOptions.map((d) => (
+                <option key={d.id} value={`v:${d.id}`}>
+                  {d.name}
+                </option>
+              ))}
+            </optgroup>
+            {driverOptions.length > 0 && (
+              <optgroup label="Conductor">
+                {driverOptions.map((d) => (
+                  <option key={d.id} value={`c:${d.id}`}>
+                    {d.name}
+                  </option>
+                ))}
+              </optgroup>
+            )}
+          </select>
+          {filterDriver && (
+            <div className="muted small">
+              {filterDeviceId != null && devices[filterDeviceId]
+                ? `Avisos de su vehículo asignado: ${devices[filterDeviceId].name}`
+                : 'Este conductor no tiene vehículo asignado (Admin → Choferes).'}
+            </div>
+          )}
+          {filter && <div className="muted small">{shown.length} de {events.length} avisos</div>}
+        </div>
+      )}
+
       {tab === 'recent' && (
         <ul className="device-list">
-          {events.map((e) => {
+          {shown.map((e) => {
             const { vehicle, what } = eventText(e, devices, geofenceNames[e.geofenceId])
             return (
               <li key={e.id}>
@@ -116,6 +167,7 @@ export default function AlertsPanel({ user, onUser, devices, events, canEdit }: 
             )
           })}
           {events.length === 0 && <li className="muted empty">Sin avisos en las últimas 24 horas. Activa reglas en “Qué avisar”.</li>}
+          {events.length > 0 && shown.length === 0 && <li className="muted empty">Sin avisos para este filtro en las últimas 24 horas.</li>}
         </ul>
       )}
 
