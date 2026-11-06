@@ -316,6 +316,37 @@ button.link {
 .dot.offline {
   background: var(--off);
 }
+/* En movimiento: flechita verde con un pulso alrededor. */
+.dot.moving {
+  position: relative;
+  width: 14px;
+  height: 14px;
+  margin: -2px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  color: var(--ok);
+}
+.dot.moving::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: var(--ok);
+  opacity: 0.35;
+  animation: moving-pulse 1.6s ease-out infinite;
+}
+.dot.moving svg {
+  position: relative;
+}
+@keyframes moving-pulse {
+  0% { transform: scale(0.6); opacity: 0.5; }
+  100% { transform: scale(1.6); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dot.moving::before { animation: none; }
+}
 .live {
   display: flex;
   align-items: center;

@@ -58,14 +58,14 @@ export default function LivePanel({ devices, positions, selectedId, onSelect, on
       {selected && (
         <div className="detail">
           <div className="detail-head">
-            <span className={`dot ${selected.status}`} />
+            <StatusDot device={selected} position={selectedPos} />
             <strong>{selected.name}</strong>
             <button className="link close" onClick={() => onSelect(null)} aria-label="Cerrar">
               ✕
             </button>
           </div>
           <div className="muted small">
-            {STATUS_LABEL[selected.status]} · {selectedPos ? `${knotsToKmh(selectedPos.speed)} km/h · ` : ''}
+            {isMoving(selected, selectedPos) ? 'En movimiento' : STATUS_LABEL[selected.status]} · {selectedPos ? `${knotsToKmh(selectedPos.speed)} km/h · ` : ''}
             {timeAgo(selected.lastUpdate)}
           </div>
           {selectedPos?.address && <div className="small">{selectedPos.address}</div>}
@@ -102,7 +102,7 @@ export default function LivePanel({ devices, positions, selectedId, onSelect, on
           const p = positions[d.id]
           return (
             <li key={d.id} className={d.id === selectedId ? 'selected' : ''} onClick={() => onSelect(d.id)}>
-              <span className={`dot ${d.status}`} title={STATUS_LABEL[d.status]} />
+              <StatusDot device={d} position={p} />
               <div className="device-info">
                 <div className="device-name">{d.name}</div>
                 <div className="muted small">
@@ -117,5 +117,23 @@ export default function LivePanel({ devices, positions, selectedId, onSelect, on
         {total === 0 && <li className="muted empty">No hay vehículos en esta cuenta.</li>}
       </ul>
     </div>
+  )
+}
+
+/** En movimiento: en línea y el GPS dice que se mueve (o va a más de 3 km/h). */
+function isMoving(d: Device, p?: Position) {
+  if (d.status !== 'online' || !p) return false
+  return p.attributes.motion === true || knotsToKmh(p.speed) > 3
+}
+
+/** Puntito de estado; si va en movimiento, una flechita verde que apunta hacia donde va y late. */
+function StatusDot({ device, position }: { device: Device; position?: Position }) {
+  if (!isMoving(device, position)) return <span className={`dot ${device.status}`} title={STATUS_LABEL[device.status]} />
+  return (
+    <span className="dot moving" title="En movimiento">
+      <svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true" style={{ transform: `rotate(${position!.course}deg)` }}>
+        <path d="M6 0.8 L10.6 11 L6 8.4 L1.4 11 Z" fill="currentColor" />
+      </svg>
+    </span>
   )
 }
