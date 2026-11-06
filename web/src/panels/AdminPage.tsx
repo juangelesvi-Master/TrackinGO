@@ -18,7 +18,7 @@ import MaintenanceTab from './MaintenanceTab'
 import { Modal } from './Modal'
 import UsersTab from './UsersTab'
 import PageTitle from './PageTitle'
-import { VEHICLE_KINDS, vehicleIconHtml, vehicleKind, type VehicleKind } from '../vehicleIcons'
+import { VEHICLE_COLORS, VEHICLE_KINDS, isGrayish, vehicleColor, vehicleIconHtml, vehicleKind, type VehicleKind } from '../vehicleIcons'
 
 const errorText = (err: unknown, fallback: string) => {
   const msg = err instanceof Error ? err.message.toLowerCase() : ''
@@ -35,6 +35,13 @@ export function DeviceForm({ device, odometerKm, onDone, onCancel }: { device: D
   const [phone, setPhone] = useState(device?.phone ?? '')
   const [model, setModel] = useState(device?.model ?? '')
   const [kind, setKind] = useState<VehicleKind>(vehicleKind(device?.category))
+  const [color, setColor] = useState<string | null>(vehicleColor(device?.attributes))
+  const [colorNote, setColorNote] = useState('')
+  const pickCustom = (hex: string) => {
+    if (isGrayish(hex)) return setColorNote('Ese color se parece al gris de "apagado". Elige otro.')
+    setColorNote('')
+    setColor(hex.toLowerCase())
+  }
   const limit = device?.attributes?.speedLimit
   const [speedLimit, setSpeedLimit] = useState(typeof limit === 'number' ? String(knotsToKmh(limit)) : '')
   const [odometer, setOdometerKm] = useState(odometerKm != null ? String(odometerKm) : '')
@@ -48,6 +55,8 @@ export function DeviceForm({ device, odometerKm, onDone, onCancel }: { device: D
     const attributes = { ...(device?.attributes ?? {}) }
     if (speedLimit.trim()) attributes.speedLimit = kmhToKnots(Number(speedLimit))
     else delete attributes.speedLimit
+    if (color) attributes.color = color
+    else delete attributes.color
     const data = { name: name.trim(), uniqueId: uniqueId.trim(), phone: phone.trim() || null, model: model.trim() || null, category: kind, attributes }
     try {
       if (device) await updateDevice({ ...device, ...data })
@@ -80,11 +89,36 @@ export function DeviceForm({ device, odometerKm, onDone, onCancel }: { device: D
                 className={kind === k.id ? 'kind on' : 'kind'}
                 onClick={() => setKind(k.id)}
               >
-                <span className="kind-icon" dangerouslySetInnerHTML={{ __html: vehicleIconHtml(k.id) }} />
+                <span className="kind-icon" style={color ? { color } : undefined} dangerouslySetInnerHTML={{ __html: vehicleIconHtml(k.id) }} />
                 {k.name}
               </button>
             ))}
           </div>
+        </div>
+        <div className="color-picker" role="radiogroup" aria-label="Color del vehículo">
+          <span>Color</span>
+          <div>
+            <button type="button" role="radio" aria-checked={!color} className={!color ? 'swatch auto on' : 'swatch auto'} onClick={() => { setColor(null); setColorNote('') }} title="Según el estado (verde en línea, gris sin señal)">
+              Según estado
+            </button>
+            {VEHICLE_COLORS.map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                role="radio"
+                aria-checked={color === c.id}
+                aria-label={c.name}
+                title={c.name}
+                className={color === c.id ? 'swatch on' : 'swatch'}
+                style={{ background: c.id }}
+                onClick={() => { setColor(c.id); setColorNote('') }}
+              />
+            ))}
+            <label className={color && !VEHICLE_COLORS.some((c) => c.id === color) ? 'swatch custom on' : 'swatch custom'} title="Otro color">
+              <input type="color" value={color ?? '#2563eb'} onChange={(e) => pickCustom(e.target.value)} aria-label="Otro color" />
+            </label>
+          </div>
+          <small className="muted">{colorNote || 'Cuando el vehículo esté apagado o sin señal se verá gris.'}</small>
         </div>
         <label>
           Identificador del rastreador (IMEI)
