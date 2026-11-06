@@ -27,17 +27,32 @@ const OFFLINE_PAGE = `<!doctype html>
   <h1 id="t">Server offline</h1>
   <p id="m">Estamos trabajando para restablecer el servicio. Pronto estará disponible de nuevo.</p>
   <p>Gracias por tu paciencia.</p>
-  <button onclick="location.reload()">Reintentar</button>
-  <p class="small"><span class="dot"></span>Revisando cada 30 segundos…</p>
+  <button id="b" onclick="check(true)">Reintentar</button>
+  <p class="small" id="s"><span class="dot"></span>Revisando cada 30 segundos…</p>
 </div>
 <script>
   if (navigator.onLine === false) {
     document.getElementById('t').textContent = 'Sin internet'
     document.getElementById('m').textContent = 'Tu celular o computadora no tiene conexión. Revisa tu internet.'
   }
-  setInterval(function () {
-    fetch('/api/server', { cache: 'no-store' }).then(function (r) { if (r.ok) location.reload() }).catch(function () {})
-  }, 30000)
+  // Solo se recarga cuando el servidor ya contesta; si no, se queda en esta página.
+  var b = document.getElementById('b'), st = document.getElementById('s'), busy = false
+  function check(manual) {
+    if (busy) return
+    busy = true
+    if (manual) { b.disabled = true; b.textContent = 'Revisando…' }
+    fetch('/api/server', { cache: 'no-store' })
+      .then(function (r) { if (r.ok) { location.reload(); return true } })
+      .catch(function () {})
+      .then(function (ok) {
+        busy = false
+        if (ok || !manual) return
+        b.disabled = false
+        b.textContent = 'Reintentar'
+        st.innerHTML = '<span class="dot"></span>Todavía no está listo. Seguimos revisando cada 30 segundos…'
+      })
+  }
+  setInterval(function () { check(false) }, 30000)
 </script>
 </body></html>`
 

@@ -22,6 +22,8 @@ import android.webkit.WebViewClient;
 import android.widget.Toast;
 
 import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
 
 /**
  * Traking GO para Android: abre el portal en pantalla completa.
@@ -38,6 +40,7 @@ public class MainActivity extends Activity {
     WebView web;
     ValueCallback<Uri[]> pendingChooser;
     byte[] pendingBytes;
+    boolean clearHistoryOnLoad;
 
     // Los reportes (Excel y PDF) se arman en la página como "blob". El WebView no sabe
     // descargarlos, así que la página nos los pasa en base64 y los guardamos aquí.
@@ -126,6 +129,11 @@ public class MainActivity extends Activity {
         @Override
         public void onPageFinished(WebView view, String url) {
             view.evaluateJavascript(DOWNLOAD_HOOK, null);
+            // Al volver el servidor, que "atrás" no regrese a la página de espera.
+            if (clearHistoryOnLoad && url != null && url.startsWith(PORTAL)) {
+                clearHistoryOnLoad = false;
+                view.clearHistory();
+            }
         }
 
         @Override
@@ -151,12 +159,16 @@ public class MainActivity extends Activity {
             "<h1 id='t' style='margin:0 0 10px;font-size:30px'>Server offline</h1>" +
             "<p id='m' style='line-height:1.5'>Estamos trabajando para restablecer el servicio. Pronto estará disponible de nuevo.</p>" +
             "<p>Gracias por tu paciencia.</p>" +
-            "<button onclick=\"location.href='" + PORTAL + "'\" style='margin-top:22px;padding:13px 32px;border:0;border-radius:10px;" +
+            "<button id='b' onclick='retry()' style='margin-top:22px;padding:13px 32px;border:0;border-radius:10px;" +
             "background:#fff;color:#0f62fe;font-size:16px;font-weight:bold'>Reintentar</button>" +
-            "<p style='font-size:13px;opacity:.75;margin-top:18px'>Revisando cada 30 segundos…</p></div>" +
+            "<p id='s' style='font-size:13px;opacity:.75;margin-top:18px'>Revisando cada 30 segundos…</p></div>" +
             "<script>if(navigator.onLine===false){document.getElementById('t').textContent='Sin internet';" +
             "document.getElementById('m').textContent='Tu celular no tiene conexión. Revisa tu internet.'}" +
-            "setTimeout(function(){location.href='" + PORTAL + "'},30000)</script></body></html>";
+            // La app revisa si el servidor ya contesta; solo entonces abre el portal.
+            "function retry(){var b=document.getElementById('b');b.disabled=true;b.textContent='Revisando…';TrakingGO.checkServer(false)}" +
+            "function notReady(){var b=document.getElementById('b');b.disabled=false;b.textContent='Reintentar';" +
+            "document.getElementById('s').textContent='Todavía no está listo. Seguimos revisando cada 30 segundos…'}" +
+            "setInterval(function(){TrakingGO.checkServer(true)},30000)</script></body></html>";
         view.loadDataWithBaseURL(null, html, "text/html", "utf-8", null);
     }
 
@@ -177,6 +189,39 @@ public class MainActivity extends Activity {
     }
 
     class Bridge {
+        /** Revisa si el servidor ya contesta. Si sí, abre el portal; si no, la página de espera se queda. */
+        @JavascriptInterface
+        public void checkServer(final boolean quiet) {
+            new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    boolean ok = false;
+                    try {
+                        HttpURLConnection c = (HttpURLConnection) new URL(PORTAL + "api/server").openConnection();
+                        c.setConnectTimeout(8000);
+                        c.setReadTimeout(8000);
+                        c.setUseCaches(false);
+                        ok = c.getResponseCode() == 200;
+                        c.disconnect();
+                    } catch (Exception ignored) {
+                        // Sin respuesta: sigue apagado.
+                    }
+                    final boolean ready = ok;
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            if (ready) {
+                                clearHistoryOnLoad = true;
+                                web.loadUrl(PORTAL);
+                            } else if (!quiet) {
+                                web.evaluateJavascript("typeof notReady=='function'&&notReady()", null);
+                            }
+                        }
+                    });
+                }
+            }).start();
+        }
+
         @JavascriptInterface
         public void saveFile(String dataUrl, final String name, final String mime) {
             int comma = dataUrl.indexOf(',');
