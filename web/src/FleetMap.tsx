@@ -7,7 +7,7 @@ import { removeLayers, setStyleReady, whenReady } from './mapUtil'
 import MapSearch from './MapSearch'
 import { hasTomTom, incidentTiles } from './tomtom'
 import { hasTraffic, MAP_STYLES, saveStyle, savedStyle, saveTraffic, savedTraffic, trafficTiles, type MapStyleOption } from './mapStyles'
-import { vehicleIconHtml, vehicleKind } from './vehicleIcons'
+import { vehicleColor, vehicleIconHtml, vehicleKind } from './vehicleIcons'
 
 // Vite no encuentra solo el "worker" de MapLibre; le indicamos dónde está.
 maplibregl.setWorkerUrl(workerUrl)
@@ -231,6 +231,13 @@ export default function FleetMap({ devices, positions, trail, selectedId, onSele
       if (el.dataset.kind !== kind) {
         el.dataset.kind = kind
         el.querySelector<HTMLElement>('.arrow')!.innerHTML = vehicleIconHtml(kind)
+      }
+      // Color propio de la carrocería (apagado siempre se ve gris); el estado se ve en el puntito de la esquina.
+      const color = d.status === 'offline' ? '' : (vehicleColor(d.attributes) ?? '')
+      if ((el.dataset.color ?? '') !== color) {
+        el.dataset.color = color
+        el.classList.toggle('custom-color', !!color)
+        el.querySelector<HTMLElement>('.arrow')!.style.color = color
       }
       el.querySelector<HTMLElement>('.arrow')!.style.transform = `rotate(${p.course}deg)`
       el.querySelector<HTMLElement>('.label')!.textContent = d.name

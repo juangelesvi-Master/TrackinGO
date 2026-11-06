@@ -16,6 +16,36 @@ export function vehicleKind(category: string | null | undefined): VehicleKind {
   return 'car'
 }
 
+/** Colores para elegir. Sin color, la carrocería cambia según el estado (verde en línea, gris sin señal…).
+ *  No hay grises: el gris queda reservado para "apagado / sin señal". */
+export const VEHICLE_COLORS: { id: string; name: string }[] = [
+  { id: '#f8fafc', name: 'Blanco' },
+  { id: '#111827', name: 'Negro' },
+  { id: '#dc2626', name: 'Rojo' },
+  { id: '#2563eb', name: 'Azul' },
+  { id: '#1e3a8a', name: 'Azul marino' },
+  { id: '#facc15', name: 'Amarillo' },
+  { id: '#ea580c', name: 'Naranja' },
+  { id: '#15803d', name: 'Verde' },
+  { id: '#7c2d12', name: 'Café' },
+  { id: '#7c3aed', name: 'Morado' },
+]
+
+/** true si el color se confunde con el gris de "apagado" (poco color y ni muy claro ni muy oscuro). */
+export function isGrayish(hex: string): boolean {
+  const n = parseInt(hex.slice(1), 16)
+  const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255
+  const max = Math.max(r, g, b), min = Math.min(r, g, b)
+  const light = (max + min) / 2 / 255
+  return max - min < 40 && light > 0.2 && light < 0.85
+}
+
+/** Color elegido para el vehículo (guardado en attributes.color), o null si usa el color por estado. */
+export function vehicleColor(attributes: Record<string, unknown> | null | undefined): string | null {
+  const c = attributes?.color
+  return typeof c === 'string' && /^#[0-9a-f]{6}$/i.test(c) && !isGrayish(c) ? c.toLowerCase() : null
+}
+
 const GLASS = 'fill="#dbeafe" stroke="#1f2937" stroke-width="0.6"'
 const BODY = 'fill="currentColor" stroke="#1f2937" stroke-width="1"'
 

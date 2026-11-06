@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import * as maplibregl from 'maplibre-gl'
 import { distance, escapeHtml, pinElement, removeLayers, whenReady } from '../mapUtil'
-import { vehicleIconHtml, vehicleKind, type VehicleKind } from '../vehicleIcons'
+import { vehicleColor, vehicleIconHtml, vehicleKind, type VehicleKind } from '../vehicleIcons'
 import { routeVisits, type Visit } from '../geofenceStay'
 import { deleteRoute, formatDuration, formatTime, getGeofences, getPositions, getReport, getRoute, getStops, knotsToKmh, type Device, type Geofence, type Position, type Stop, type Trip } from '../traccar'
 
@@ -27,7 +27,7 @@ function routeKm(points: Position[]) {
 }
 
 /** Dibuja la ruta, las paradas y el vehículo que se mueve al reproducir. */
-function useRouteLayer(map: maplibregl.Map | null, route: Route | null, cursor: number, kind: VehicleKind) {
+function useRouteLayer(map: maplibregl.Map | null, route: Route | null, cursor: number, kind: VehicleKind, color: string | null) {
   const playback = useRef<maplibregl.Marker | null>(null)
 
   useEffect(() => {
@@ -57,6 +57,7 @@ function useRouteLayer(map: maplibregl.Map | null, route: Route | null, cursor: 
       el.className = 'vehicle-marker playback'
       el.dataset.status = 'online'
       el.innerHTML = `<div class="arrow">${vehicleIconHtml(kind)}</div><div class="label"></div>`
+      if (color) el.querySelector<HTMLElement>('.arrow')!.style.color = color
       playback.current = new maplibregl.Marker({ element: el }).setLngLat(coords[0]).addTo(map)
       markers.push(playback.current)
 
@@ -69,7 +70,7 @@ function useRouteLayer(map: maplibregl.Map | null, route: Route | null, cursor: 
       playback.current = null
       removeLayers(map, ['route-line', 'route-casing'], ['route'])
     }
-  }, [map, route, kind])
+  }, [map, route, kind, color])
 
   useEffect(() => {
     const p = route?.points[cursor]
@@ -124,7 +125,8 @@ export default function HistoryPanel({ map, devices, initialDeviceId, canDelete 
   const [playing, setPlaying] = useState(false)
   const [speed, setSpeed] = useState(5)
 
-  useRouteLayer(map, route, cursor, vehicleKind(devices.find((d) => d.id === deviceId)?.category))
+  const histDevice = devices.find((d) => d.id === deviceId)
+  useRouteLayer(map, route, cursor, vehicleKind(histDevice?.category), vehicleColor(histDevice?.attributes))
 
   const [geofences, setGeofences] = useState<Geofence[]>([])
   useEffect(() => {
