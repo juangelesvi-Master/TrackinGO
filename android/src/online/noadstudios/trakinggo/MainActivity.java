@@ -15,6 +15,7 @@ import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
+import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
@@ -129,15 +130,34 @@ public class MainActivity extends Activity {
 
         @Override
         public void onReceivedError(WebView view, WebResourceRequest req, WebResourceError err) {
-            if (!req.isForMainFrame()) return;
-            String html = "<html><head><meta name='viewport' content='width=device-width,initial-scale=1'></head>" +
-                "<body style='margin:0;height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;" +
-                "background:#0f62fe;color:#fff;font-family:sans-serif;text-align:center;padding:24px;box-sizing:border-box'>" +
-                "<h2>Sin conexión</h2><p>Revisa tu internet e intenta de nuevo.</p>" +
-                "<button onclick=\"location.href='" + PORTAL + "'\" style='margin-top:12px;padding:12px 28px;border:0;border-radius:8px;" +
-                "background:#fff;color:#0f62fe;font-size:16px;font-weight:bold'>Reintentar</button></body></html>";
-            view.loadDataWithBaseURL(null, html, "text/html", "utf-8", null);
+            // Sin internet o el servidor no contesta.
+            if (req.isForMainFrame()) showOffline(view);
         }
+
+        @Override
+        public void onReceivedHttpError(WebView view, WebResourceRequest req, WebResourceResponse res) {
+            // Servidor apagado: Cloudflare contesta con un error 5xx.
+            if (req.isForMainFrame() && res.getStatusCode() >= 500) showOffline(view);
+        }
+    }
+
+    /** Página "Server offline": se reintenta sola cada 30 segundos. */
+    void showOffline(WebView view) {
+        String html = "<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width,initial-scale=1'></head>" +
+            "<body style='margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;box-sizing:border-box;" +
+            "background:linear-gradient(160deg,#0f62fe,#0a3fa8);color:#fff;font-family:sans-serif;text-align:center'><div style='max-width:380px'>" +
+            "<div style='width:84px;height:84px;margin:0 auto 20px;border-radius:50%;background:rgba(255,255,255,.14);display:flex;align-items:center;justify-content:center'>" +
+            "<svg viewBox='0 0 24 24' width='44' height='44'><path fill='#fff' d='M4 4h16a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1zm0 10h9.5a6 6 0 0 0 0 6H4a1 1 0 0 1-1-1v-4a1 1 0 0 1 1-1zm2-7.5a1 1 0 1 0 0 1 1 1 0 0 0 0-1zM18 13a4 4 0 1 1 0 8 4 4 0 0 1 0-8zm-1.4 1.9-.7.7 1.4 1.4-1.4 1.4.7.7 1.4-1.4 1.4 1.4.7-.7-1.4-1.4 1.4-1.4-.7-.7-1.4 1.4z'/></svg></div>" +
+            "<h1 id='t' style='margin:0 0 10px;font-size:30px'>Server offline</h1>" +
+            "<p id='m' style='line-height:1.5'>Estamos trabajando para restablecer el servicio. Pronto estará disponible de nuevo.</p>" +
+            "<p>Gracias por tu paciencia.</p>" +
+            "<button onclick=\"location.href='" + PORTAL + "'\" style='margin-top:22px;padding:13px 32px;border:0;border-radius:10px;" +
+            "background:#fff;color:#0f62fe;font-size:16px;font-weight:bold'>Reintentar</button>" +
+            "<p style='font-size:13px;opacity:.75;margin-top:18px'>Revisando cada 30 segundos…</p></div>" +
+            "<script>if(navigator.onLine===false){document.getElementById('t').textContent='Sin internet';" +
+            "document.getElementById('m').textContent='Tu celular no tiene conexión. Revisa tu internet.'}" +
+            "setTimeout(function(){location.href='" + PORTAL + "'},30000)</script></body></html>";
+        view.loadDataWithBaseURL(null, html, "text/html", "utf-8", null);
     }
 
     class Chrome extends WebChromeClient {
