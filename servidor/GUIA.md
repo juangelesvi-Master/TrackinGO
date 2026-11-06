@@ -243,3 +243,47 @@ La primera vez tarda unos minutos porque compila la app. Después:
 La cuenta Maestro se crea igual que en el Paso 5, pero entrando directo a `http://IP-DEL-SERVIDOR:8082`. Para actualizar la app después: `git pull` y el mismo `docker compose ... up -d --build`.
 
 > Si la IP de la casa cambia, los rastreadores deben apuntar a un nombre que se actualice solo (por ejemplo DuckDNS). La app web no se ve afectada, porque va por el túnel.
+
+## Seguridad
+
+### Limitar intentos de inicio de sesión (Cloudflare)
+
+Para que nadie pueda probar miles de contraseñas, crea una regla gratis en Cloudflare:
+
+1. Entra a Cloudflare, elige tu dominio y ve a **Security → WAF → Rate limiting rules**.
+2. **Create rule**. Nombre: `limite-login`.
+3. En "If incoming requests match": campo **URI Path** igual a `/api/session` y campo **Request Method** igual a `POST`.
+4. "With the same characteristics": **IP**. Cuando pasen de **10 peticiones** en **10 segundos**.
+5. Acción: **Block** por 10 segundos (en el plan gratis es lo que hay). Guarda con **Deploy**.
+
+El plan gratis permite una regla, y esta es la más importante.
+
+### Proteger las llaves de mapas
+
+Las llaves de TomTom y Google van dentro de la app web y cualquiera puede verlas; así funcionan esos servicios. Lo que las protege es limitarlas a tu dominio:
+
+- **TomTom**: en developer.tomtom.com, en tu llave, agrega tu dominio en "Domain whitelist".
+- **Google**: en Google Cloud, Credenciales, edita la llave, elige "Sitios web" y agrega `https://tu-dominio.com/*`. Limítala solo a "Maps JavaScript API" y "Map Tiles API".
+- **Firebase** (avisos): su configuración web también es pública por diseño; no hace falta esconderla.
+
+Nunca subas al repositorio el archivo `.env`, el token del túnel ni la llave de firma de la app (`.jks`).
+
+### Probar que la API funciona
+
+En el servidor:
+
+```bash
+cd ~/TrackinGO/servidor
+bash probar-api.sh
+```
+
+Te pide un usuario y contraseña (no se guardan) y revisa sesión, vehículos, posiciones, geocercas, avisos, reportes y comandos. Si le das un segundo usuario que no sea admin, también revisa que no pueda ver vehículos de otros. Al final dice cuántas pruebas salieron bien.
+
+### Lo que ya trae de seguridad
+
+- Cada usuario solo ve sus vehículos: Traccar revisa los permisos en cada petición.
+- La base de datos no está abierta a internet; solo la usan los contenedores.
+- La app manda encabezados de seguridad (no se puede meter dentro de otra página, etc.).
+- Los registros (logs) de los contenedores se recortan solos a 30 MB por servicio.
+- Los errores que se guardan en la consola ocultan contraseñas, tokens y correos.
+- El puerto `8082` (panel original) solo debe usarse dentro de la red de la casa; no lo abras en el módem.

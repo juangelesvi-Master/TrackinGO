@@ -1,8 +1,16 @@
 # Teesa Location: Traccar + base de datos + app web con HTTPS.
 # Uso: copia .env.example a .env, llénalo y ejecuta ./instalar.sh
 
+# Registros de Docker: máximo 3 archivos de 10 MB por servicio, para no llenar el disco.
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   db:
+    logging: *logging
     image: postgres:17
     restart: unless-stopped
     environment:
@@ -17,6 +25,7 @@ services:
       retries: 10
 
   traccar:
+    logging: *logging
     image: traccar/traccar:6.16
     restart: unless-stopped
     depends_on:
@@ -30,6 +39,8 @@ services:
       DATABASE_PASSWORD: ${DB_PASSWORD}
       # Dirección pública de la app: Traccar la usa en los correos (p. ej. recuperar contraseña).
       WEB_URL: https://${DOMAIN:?Falta DOMAIN en .env}
+      # Solo la app propia puede usar la API desde el navegador (CORS).
+      WEB_ORIGIN: https://${DOMAIN}
       # Correo de salida (opcional). Si SMTP_HOST está vacío, no se envían correos.
       MAIL_SMTP_HOST: ${SMTP_HOST:-}
       MAIL_SMTP_PORT: ${SMTP_PORT:-587}
@@ -61,6 +72,7 @@ services:
       retries: 3
 
   web:
+    logging: *logging
     build:
       context: ../web
       dockerfile: ../servidor/web.Dockerfile

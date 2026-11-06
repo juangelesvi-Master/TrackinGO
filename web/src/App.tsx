@@ -1,10 +1,12 @@
-import { useEffect, useState } from 'react'
-import Fleet from './Fleet'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import ForgotPage from './auth/ForgotPage'
 import LoginPage from './auth/LoginPage'
 import ResetPage from './auth/ResetPage'
 import { navigate, useLocation } from './router'
 import { getServer, getSession, logout, SUPPORT_KEY, type Server, type User } from './traccar'
+
+// El mapa (y todo lo que trae) se descarga solo después de iniciar sesión: el login abre más rápido.
+const Fleet = lazy(() => import('./Fleet'))
 
 export default function App() {
   const { path, params } = useLocation()
@@ -49,6 +51,7 @@ export default function App() {
   }
 
   return (
+    <Suspense fallback={<div className="splash">Cargando…</div>}>
     <Fleet
       user={user}
       onUser={setUser}
@@ -63,5 +66,6 @@ export default function App() {
         navigate('/login', true)
       }}
     />
+    </Suspense>
   )
 }

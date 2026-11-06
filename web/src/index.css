@@ -1422,3 +1422,28 @@ tfoot td {
   display: flex;
   align-items: center;
 }
+
+/* Avisos cuando algo falla al mostrar una pantalla */
+.error-screen,
+.error-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 24px;
+}
+.error-screen {
+  min-height: 100vh;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+.error-screen p,
+.error-panel p {
+  margin: 0;
+  color: var(--muted, #6b7280);
+  max-width: 420px;
+}
+.page-loading {
+  padding: 24px;
+  color: var(--muted, #6b7280);
+}

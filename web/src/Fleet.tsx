@@ -1,18 +1,21 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type * as maplibregl from 'maplibre-gl'
 import FleetMap from './FleetMap'
 import { stayText, useGeofenceStays } from './geofenceStay'
 import { eventText, isUrgent } from './labels'
 import { permsOf } from './permissions'
-import AdminPage from './panels/AdminPage'
 import AlertsPanel from './panels/AlertsPanel'
 import GeofencesPanel from './panels/GeofencesPanel'
 import HistoryPanel from './panels/HistoryPanel'
 import LivePanel from './panels/LivePanel'
-import MasterPage from './panels/MasterPage'
-import ReportsPage from './panels/ReportsPage'
 import { brandOf } from './brand'
+import ErrorBoundary from './ErrorBoundary'
 import { AuthError, SUPPORT_KEY, connectSocket, getDevices, getDrivers, getEvents, getGeofences, getPositions, type Device, type Driver, type Position, type TraccarEvent, type User } from './traccar'
+
+// Pantallas grandes que se descargan solo cuando se abren.
+const AdminPage = lazy(() => import('./panels/AdminPage'))
+const MasterPage = lazy(() => import('./panels/MasterPage'))
+const ReportsPage = lazy(() => import('./panels/ReportsPage'))
 
 type Tab = 'live' | 'history' | 'reports' | 'geofences' | 'alerts' | 'admin' | 'master'
 
@@ -242,12 +245,14 @@ export default function Fleet({ user, onUser, onLogout }: { user: User; onUser: 
           ))}
         </nav>
 
-        {(tab === 'live' || fullPage) && (
-          <LivePanel devices={devices} positions={positions} selectedId={selectedId} onSelect={setSelectedId} onHistory={openHistory} drivers={drivers} canHistory={perms.history} canEngine={perms.engine} />
-        )}
-        {tab === 'history' && <HistoryPanel key={historyFor.n} map={map} devices={deviceList} initialDeviceId={historyFor.id ?? selectedId} canDelete={perms.users} />}
-        {tab === 'geofences' && <GeofencesPanel map={map} devices={deviceList} canEdit={perms.geofences} />}
-        {tab === 'alerts' && <AlertsPanel user={user} onUser={onUser} devices={devices} events={events} canEdit={perms.geofences} />}
+        <ErrorBoundary key={fullPage ? 'live' : tab} where={`panel ${tab}`}>
+          {(tab === 'live' || fullPage) && (
+            <LivePanel devices={devices} positions={positions} selectedId={selectedId} onSelect={setSelectedId} onHistory={openHistory} drivers={drivers} canHistory={perms.history} canEngine={perms.engine} />
+          )}
+          {tab === 'history' && <HistoryPanel key={historyFor.n} map={map} devices={deviceList} initialDeviceId={historyFor.id ?? selectedId} canDelete={perms.users} />}
+          {tab === 'geofences' && <GeofencesPanel map={map} devices={deviceList} canEdit={perms.geofences} />}
+          {tab === 'alerts' && <AlertsPanel user={user} onUser={onUser} devices={devices} events={events} canEdit={perms.geofences} />}
+        </ErrorBoundary>
 
         <footer className="muted small live">
           <span className={`dot ${live ? 'online' : 'offline'}`} />
@@ -267,9 +272,15 @@ export default function Fleet({ user, onUser, onLogout }: { user: User; onUser: 
           wide={wide}
           onToggleWide={() => setWide((w) => !w)}
         />
-        {tab === 'admin' && <AdminPage me={user} devices={deviceList} positions={positions} drivers={drivers} onChanged={reloadAdmin} onBack={closePage} />}
-        {tab === 'reports' && perms.history && <ReportsPage devices={deviceList} brand={brand} onBack={closePage} />}
-        {tab === 'master' && isMaster && <MasterPage me={user} devices={deviceList} onChanged={reloadAdmin} onBack={closePage} />}
+        {fullPage && (
+          <ErrorBoundary key={tab} where={`pantalla ${tab}`}>
+            <Suspense fallback={<div className="page-loading">Cargando…</div>}>
+              {tab === 'admin' && <AdminPage me={user} devices={deviceList} positions={positions} drivers={drivers} onChanged={reloadAdmin} onBack={closePage} />}
+              {tab === 'reports' && perms.history && <ReportsPage devices={deviceList} brand={brand} onBack={closePage} />}
+              {tab === 'master' && isMaster && <MasterPage me={user} devices={deviceList} onChanged={reloadAdmin} onBack={closePage} />}
+            </Suspense>
+          </ErrorBoundary>
+        )}
       </main>
 
       <div className="toasts">
