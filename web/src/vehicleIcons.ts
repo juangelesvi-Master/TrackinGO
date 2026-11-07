@@ -81,3 +81,44 @@ const SVG: Record<VehicleKind, string> = {
 }
 
 export const vehicleIconHtml = (kind: VehicleKind) => SVG[kind]
+
+// Vista de lado (para la lista de vehículos). La carrocería también usa "currentColor".
+const SIDE_BODY = 'fill="currentColor" stroke="#1f2937" stroke-width="1.2" stroke-linejoin="round"'
+const SIDE_GLASS = 'fill="#dbeafe" stroke="#1f2937" stroke-width="0.8"'
+const wheel = (x: number, y: number, r: number) =>
+  `<circle cx="${x}" cy="${y}" r="${r}" fill="#1f2937"/><circle cx="${x}" cy="${y}" r="${r * 0.45}" fill="#d1d5db"/>`
+
+const SIDE: Record<VehicleKind, string> = {
+  car: `<svg viewBox="0 0 124 56" width="96" height="44" aria-hidden="true">
+    <path d="M8 38 L10 29 Q12 24 18 23 L34 22 L46 12 Q50 9 56 9 L78 9 Q84 9 88 13 L98 22 L110 24 Q116 26 116 32 L116 38 Q116 42 112 42 L12 42 Q8 42 8 38 Z" ${SIDE_BODY}/>
+    <path d="M48 13.5 L58 12.5 L58 22 L39 22 Z" ${SIDE_GLASS}/>
+    <path d="M62 12.5 L77 12.5 Q81 12.5 84 15 L91 22 L62 22 Z" ${SIDE_GLASS}/>
+    <path d="M14 31 L112 31" stroke="rgb(255 255 255 / 0.4)" stroke-width="1.5"/>
+    <path d="M60 23 L60 40" stroke="rgb(0 0 0 / 0.25)" stroke-width="0.8"/>
+    <rect x="110" y="27" width="5" height="3" rx="1" fill="#fde68a"/>
+    <rect x="8.5" y="29" width="3" height="4" rx="1" fill="#ef4444"/>
+    ${wheel(32, 42, 9)}${wheel(92, 42, 9)}
+  </svg>`,
+  van: `<svg viewBox="0 0 124 56" width="96" height="44" aria-hidden="true">
+    <path d="M8 40 L8 14 Q8 8 14 8 L86 8 Q92 8 96 12 L110 25 Q116 27 116 33 L116 40 Q116 44 112 44 L12 44 Q8 44 8 40 Z" ${SIDE_BODY}/>
+    <rect x="14" y="13" width="18" height="12" rx="1.5" ${SIDE_GLASS}/>
+    <rect x="36" y="13" width="18" height="12" rx="1.5" ${SIDE_GLASS}/>
+    <rect x="58" y="13" width="18" height="12" rx="1.5" ${SIDE_GLASS}/>
+    <path d="M80 13 L91 13 L103 25 L80 25 Z" ${SIDE_GLASS}/>
+    <path d="M12 31 L114 31" stroke="rgb(255 255 255 / 0.4)" stroke-width="1.5"/>
+    <path d="M56 26 L56 42" stroke="rgb(0 0 0 / 0.25)" stroke-width="0.8"/>
+    <rect x="111" y="29" width="4.5" height="3" rx="1" fill="#fde68a"/>
+    ${wheel(30, 44, 9)}${wheel(94, 44, 9)}
+  </svg>`,
+  bus: `<svg viewBox="0 0 124 56" width="96" height="44" aria-hidden="true">
+    <path d="M6 42 L6 10 Q6 6 10 6 L109 6 Q115 6 116 12 L117 38 Q117 44 111 44 L10 44 Q6 44 6 42 Z" ${SIDE_BODY}/>
+    ${[12, 28, 44, 60, 76, 92].map((x) => `<rect x="${x}" y="11" width="13" height="13" rx="1.5" ${SIDE_GLASS}/>`).join('')}
+    <rect x="107" y="10" width="8" height="18" rx="1.5" ${SIDE_GLASS}/>
+    <path d="M8 31 L115 31" stroke="rgb(255 255 255 / 0.45)" stroke-width="2"/>
+    <rect x="109" y="31" width="5" height="12" rx="1" fill="rgb(0 0 0 / 0.15)"/>
+    <rect x="112.5" y="35" width="4" height="3" rx="1" fill="#fde68a"/>
+    ${wheel(26, 44, 8)}${wheel(94, 44, 8)}
+  </svg>`,
+}
+
+export const vehicleSideHtml = (kind: VehicleKind) => SIDE[kind]
