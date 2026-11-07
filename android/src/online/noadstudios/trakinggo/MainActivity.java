@@ -26,7 +26,7 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 
 /**
- * Traking GO para Android: abre el portal en pantalla completa.
+ * TracKING GO para Android: abre el portal en pantalla completa.
  * Para cambiar de servidor solo hay que cambiar PORTAL y volver a compilar.
  */
 public class MainActivity extends Activity {

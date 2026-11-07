@@ -48,7 +48,7 @@ services:
       MAIL_SMTP_USERNAME: ${SMTP_USER:-}
       MAIL_SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       MAIL_SMTP_FROM: ${SMTP_FROM:-}
-      MAIL_SMTP_FROM_NAME: Traking GO
+      MAIL_SMTP_FROM_NAME: TracKING GO
       # Días de historial que se guardan. Cada noche Traccar borra posiciones y eventos más viejos
       # (ajuste database.historyDays). 0 = guardar todo para siempre.
       DATABASE_HISTORY_DAYS: ${HISTORY_DAYS:-180}

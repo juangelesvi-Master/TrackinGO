@@ -1,4 +1,4 @@
-# Traking GO
+# TracKING GO
 
 Plataforma de rastreo GPS para flotillas: portal web, app de Android y kit para instalar el servidor.
 

@@ -19,7 +19,7 @@ export function safeErrorText(err: unknown): string {
 
 /** Registra un error en la consola con el lugar donde pasó. */
 export function logError(where: string, err: unknown) {
-  console.error(`[Traking GO] ${where}: ${safeErrorText(err)}`)
+  console.error(`[TracKING GO] ${where}: ${safeErrorText(err)}`)
 }
 
 /** Si una parte de la app no se pudo descargar (pasa justo después de actualizar el servidor). */

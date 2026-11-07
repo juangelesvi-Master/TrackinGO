@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Compila Traking GO para Android sin Android Studio.
+# Compila TracKING GO para Android sin Android Studio.
 # Necesita (Ubuntu): android-sdk-build-tools android-sdk-platform-23 dalvik-exchange apksigner zipalign y un JDK.
 # Uso: ./build.sh            (firma con keystore/trakinggo.jks; pide la clave en KEYSTORE_PASS)
 set -euo pipefail

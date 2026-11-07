@@ -1,4 +1,4 @@
-# Traking GO para Android
+# TracKING GO para Android
 
 App de Android que abre el portal https://trackingo.noadstudios.online en pantalla completa.
 

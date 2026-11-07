@@ -48,7 +48,7 @@ export function DevicePicker({ devices, chosen, onChange }: { devices: Device[];
 /** Datos de acceso para copiar y mandar por WhatsApp o correo. */
 export function Credentials({ name, login, email, password, onClose }: { name: string; login: string; email?: string; password: string; onClose: () => void }) {
   const [copied, setCopied] = useState(false)
-  const text = `Hola ${name}, estos son tus datos para entrar a Traking GO:\nPortal: ${location.origin}\nUsuario: ${login}${email ? `\nCorreo: ${email}` : ''}\nContraseña: ${password}${email ? '\nPuedes entrar con el usuario o con el correo. Si olvidas tu contraseña, recupérala con tu correo.' : ''}`
+  const text = `Hola ${name}, estos son tus datos para entrar a TracKING GO:\nPortal: ${location.origin}\nUsuario: ${login}${email ? `\nCorreo: ${email}` : ''}\nContraseña: ${password}${email ? '\nPuedes entrar con el usuario o con el correo. Si olvidas tu contraseña, recupérala con tu correo.' : ''}`
   return (
     <Modal title="Datos de acceso" onClose={onClose}>
       <p>Comparte estos datos con {name}. Por seguridad, la contraseña no se vuelve a mostrar.</p>

@@ -1,4 +1,4 @@
-// Service worker de Traking GO: permite instalar la app y recibe las notificaciones push.
+// Service worker de TracKING GO: permite instalar la app y recibe las notificaciones push.
 
 self.addEventListener('install', () => self.skipWaiting())
 // Borra la copia vieja de la página que guardaban versiones anteriores.
@@ -8,7 +8,7 @@ self.addEventListener('activate', (e) => e.waitUntil(caches.keys().then((keys) =
 // Va escrita aquí mismo porque, con el servidor apagado, no se puede pedir nada.
 const OFFLINE_PAGE = `<!doctype html>
 <html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Server offline · Traking GO</title>
+<title>Server offline · TracKING GO</title>
 <style>
   *{box-sizing:border-box}
   body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;
@@ -83,7 +83,7 @@ self.addEventListener('push', (e) => {
   const n = payload.notification || {}
   const data = payload.data || {}
   e.waitUntil(
-    self.registration.showNotification(n.title || data.title || 'Traking GO', {
+    self.registration.showNotification(n.title || data.title || 'TracKING GO', {
       body: n.body || data.body || data.message || '',
       icon: '/icon-192.png',
       badge: '/icon-192.png',
