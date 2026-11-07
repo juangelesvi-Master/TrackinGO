@@ -9,19 +9,19 @@ export function AuthLayout({ title, subtitle, children }: { title: string; subti
       <section className="auth-hero">
         <div className="brand brand-light">
           <span className="brand-dot" />
-          Traking GO
+          TracKING GO
         </div>
         <div className="auth-hero-text">
           <h2>Tu flota, en tiempo real.</h2>
           <p>Ubicación en vivo, historial de rutas, geocercas y alertas de todos tus vehículos en un solo lugar.</p>
         </div>
-        <span className="auth-hero-foot">© {YEAR} Traking GO</span>
+        <span className="auth-hero-foot">© {YEAR} TracKING GO</span>
       </section>
       <section className="auth-main">
         <div className="auth-card">
           <div className="brand auth-brand-mobile">
             <span className="brand-dot" />
-            Traking GO
+            TracKING GO
           </div>
           <h1>{title}</h1>
           {subtitle && <p className="muted">{subtitle}</p>}

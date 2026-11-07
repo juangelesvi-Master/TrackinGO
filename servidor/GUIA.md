@@ -1,4 +1,4 @@
-# Cómo poner Traking GO en línea
+# Cómo poner TracKING GO en línea
 
 Esta carpeta instala en un solo servidor todo lo necesario:
 

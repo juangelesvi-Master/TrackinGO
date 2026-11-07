@@ -70,7 +70,7 @@ export default function PhoneBox({ user, onUser }: { user: User; onUser: (u: Use
           Instalar la app
         </button>
       )}
-      {iosHelp && <p className="muted small">En iPhone: toca el botón Compartir de Safari y elige “Agregar a pantalla de inicio”. Después abre Traking GO desde el ícono.</p>}
+      {iosHelp && <p className="muted small">En iPhone: toca el botón Compartir de Safari y elige “Agregar a pantalla de inicio”. Después abre TracKING GO desde el ícono.</p>}
       {state === 'blocked' && <p className="muted small">Los avisos están bloqueados para esta página. Actívalos en los ajustes del navegador.</p>}
       {(state === 'on' || state === 'off') && (
         <label className="rule">

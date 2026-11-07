@@ -1,6 +1,6 @@
 import type { User } from './traccar'
 
-export const DEFAULT_BRAND = 'Traking GO'
+export const DEFAULT_BRAND = 'TracKING GO'
 
 /** Logo y nombre de la empresa. Se guardan en attributes.teesaBrand de la empresa y de cada uno de sus usuarios. */
 export interface Brand {

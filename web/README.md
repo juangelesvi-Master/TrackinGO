@@ -1,4 +1,4 @@
-# Traking GO · App web
+# TracKING GO · App web
 
 Primera versión de la app de rastreo de flota. Se conecta a un servidor **Traccar** y muestra:
 

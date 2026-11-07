@@ -1,4 +1,4 @@
-# Traking GO en un servidor propio (en casa u oficina) publicado con Cloudflare Tunnel.
+# TracKING GO en un servidor propio (en casa u oficina) publicado con Cloudflare Tunnel.
 # Los clientes entran a https://TU-DOMINIO sin abrir los puertos 80/443 del módem:
 # Cloudflare da el HTTPS y esconde la IP del lugar. Los rastreadores siguen entrando
 # directo por su puerto (5027 para Teltonika), que sí se abre en el módem.
@@ -55,7 +55,7 @@ services:
       MAIL_SMTP_USERNAME: ${SMTP_USER:-}
       MAIL_SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       MAIL_SMTP_FROM: ${SMTP_FROM:-}
-      MAIL_SMTP_FROM_NAME: Traking GO
+      MAIL_SMTP_FROM_NAME: TracKING GO
       DATABASE_HISTORY_DAYS: ${HISTORY_DAYS:-180}
       NOTIFICATOR_TYPES: ${NOTIFICATOR_TYPES:-web,mail}
       NOTIFICATOR_FIREBASE_SERVICE_ACCOUNT: ${FIREBASE_SERVICE_ACCOUNT:-}
