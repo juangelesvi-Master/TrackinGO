@@ -30,6 +30,8 @@ export interface Device {
   disabled?: boolean
   phone?: string | null
   model?: string | null
+  /** Hora del último cambio entre en movimiento y detenido (la calcula Traccar). */
+  motionTime?: string | null
   attributes?: Record<string, unknown>
 }
 

@@ -28,6 +28,17 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'admin', label: 'Admin' },
 ]
 
+// Íconos del menú lateral (solo en PC).
+const TAB_ICONS: Record<Tab, string> = {
+  live: 'M12 2a7 7 0 0 1 7 7c0 5-7 13-7 13S5 14 5 9a7 7 0 0 1 7-7zm0 4.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5z',
+  history: 'M13 3a9 9 0 1 1-8.95 10h2.02A7 7 0 1 0 8.3 6.6L11 9.3H4V2.3l2.88 2.88A8.96 8.96 0 0 1 13 3zm-1 5h2v4.6l3.2 1.9-1 1.7L12 13.7V8z',
+  reports: 'M4 20V10h3v10H4zm6.5 0V4h3v16h-3zM17 20v-7h3v7h-3z',
+  geofences: 'M12 2 3 6.5v5c0 5 3.8 9.7 9 10.5 5.2-.8 9-5.5 9-10.5v-5L12 2zm0 2.2 7 3.5v3.8c0 4-3 7.9-7 8.6-4-.7-7-4.6-7-8.6V7.7l7-3.5z',
+  alerts: 'M12 22a2.5 2.5 0 0 0 2.45-2h-4.9A2.5 2.5 0 0 0 12 22zm7-6V11a7 7 0 0 0-5.5-6.84V3a1.5 1.5 0 0 0-3 0v1.16A7 7 0 0 0 5 11v5l-2 2v1h18v-1l-2-2z',
+  admin: 'M19.4 13a7.5 7.5 0 0 0 0-2l2.1-1.6-2-3.5-2.5 1a7.4 7.4 0 0 0-1.7-1L14.9 3h-4l-.4 2.9a7.4 7.4 0 0 0-1.7 1l-2.5-1-2 3.5L6.4 11a7.5 7.5 0 0 0 0 2l-2.1 1.6 2 3.5 2.5-1c.5.4 1.1.7 1.7 1l.4 2.9h4l.4-2.9c.6-.3 1.2-.6 1.7-1l2.5 1 2-3.5L19.4 13zM12.9 15.5a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7z',
+  master: 'M5 16 3 6l5.5 4L12 4l3.5 6L21 6l-2 10H5zm0 2h14v2H5v-2z',
+}
+
 /** Junta avisos sin repetir, del más nuevo al más viejo. */
 function mergeEvents(a: TraccarEvent[], b: TraccarEvent[]) {
   const byId = new Map([...a, ...b].map((e) => [e.id, e]))
@@ -204,6 +215,18 @@ export default function Fleet({ user, onUser, onLogout }: { user: User; onUser: 
 
   return (
     <div className={wide ? 'fleet wide' : 'fleet'}>
+      {/* En PC el menú va en una barra lateral con íconos; en el celular se queda como pestañas arriba. */}
+      <nav className="rail" aria-label="Menú">
+        {[...tabs, ...(isMaster ? [{ id: 'master' as Tab, label: 'Maestro' }] : [])].map((t) => (
+          <button key={t.id} className={tab === t.id ? 'active' : ''} onClick={() => openTab(t.id)} title={t.label} aria-current={tab === t.id ? 'page' : undefined}>
+            <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+              <path fill="currentColor" d={TAB_ICONS[t.id]} />
+            </svg>
+            <span>{t.label}</span>
+            {t.id === 'alerts' && unread > 0 && <span className="count">{unread > 99 ? '99+' : unread}</span>}
+          </button>
+        ))}
+      </nav>
       <aside className="sidebar">
         {supportBy && (
           <div className="support-banner">
@@ -221,7 +244,7 @@ export default function Fleet({ user, onUser, onLogout }: { user: User; onUser: 
           </div>
           <div className="head-actions">
             {isMaster && (
-              <button className={`link ${tab === 'master' ? 'current' : ''}`} onClick={() => openTab('master')}>
+              <button className={`link master-link ${tab === 'master' ? 'current' : ''}`} onClick={() => openTab('master')}>
                 Maestro
               </button>
             )}

@@ -1554,3 +1554,263 @@ tfoot td {
 .alert-filter select {
   width: 100%;
 }
+
+/* ---- En vivo: filtros por estado y tarjetas de vehículo ---- */
+.state-filters {
+  display: flex;
+  gap: 4px;
+  padding: 10px 10px 8px;
+  overflow-x: auto;
+  flex-shrink: 0;
+  scrollbar-width: none;
+}
+.state-chip {
+  --c: var(--brand);
+  flex: 1 0 58px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 2px;
+  background: none;
+  color: var(--text);
+  border-radius: 10px;
+  font-weight: 500;
+}
+.state-chip:hover {
+  background: var(--bg);
+}
+.state-chip.on {
+  background: color-mix(in srgb, var(--c) 12%, transparent);
+}
+.state-chip .chip-ball {
+  min-width: 34px;
+  height: 34px;
+  padding: 0 6px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--c);
+  color: #fff;
+  font-weight: 700;
+  font-size: 15px;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--c) 25%, transparent);
+}
+.state-chip .chip-label {
+  font-size: 11px;
+  line-height: 1.15;
+  text-align: center;
+  color: var(--muted);
+}
+.state-chip.on .chip-label {
+  color: var(--text);
+  font-weight: 600;
+}
+.st-all {
+  --c: #7c3aed;
+}
+.st-moving {
+  --c: #16a34a;
+}
+.st-stopped {
+  --c: #ef4444;
+}
+.st-inactive {
+  --c: #f59e0b;
+}
+.st-offline {
+  --c: #9ca3af;
+}
+
+.device-list.vcards {
+  padding: 4px 10px 10px;
+  background: var(--bg);
+}
+.device-list.vcards li.vcard {
+  display: block;
+  margin-top: 8px;
+  padding: 10px 12px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--c);
+  border-radius: 10px;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.05);
+}
+.device-list.vcards li.vcard:hover {
+  background: var(--panel);
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.1);
+}
+.device-list.vcards li.vcard.selected {
+  background: color-mix(in srgb, var(--brand) 6%, var(--panel));
+  border-color: color-mix(in srgb, var(--brand) 45%, var(--border));
+  border-left-color: var(--c);
+}
+.vcard-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.vcard-img {
+  flex: none;
+  width: 84px;
+  display: flex;
+  justify-content: center;
+}
+.vcard-img svg {
+  width: 84px;
+  height: auto;
+  filter: drop-shadow(0 2px 2px rgb(0 0 0 / 0.18));
+}
+.vcard-title {
+  flex: 1;
+  min-width: 0;
+}
+.vcard-title .device-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.vcard-state {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 3px;
+  flex-wrap: wrap;
+}
+.state-pill {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 999px;
+  color: color-mix(in srgb, var(--c) 80%, #000);
+  background: color-mix(in srgb, var(--c) 15%, transparent);
+}
+.vcard-icons {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  color: var(--muted);
+}
+.vcard-icons .ok {
+  color: var(--ok);
+}
+.vcard-icons .warn {
+  color: var(--warn);
+}
+.vcard-icons .signal {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 1px;
+  height: 14px;
+}
+.vcard-icons .signal i {
+  width: 2.5px;
+  background: var(--border);
+  border-radius: 1px;
+}
+.vcard-icons .signal i.on {
+  background: var(--text);
+}
+.vcard-icons .signal.warn i.on {
+  background: var(--warn);
+}
+.vcard-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--border);
+}
+.vcard-stats div {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.vcard-stats span {
+  font-size: 10.5px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.vcard-stats strong {
+  font-size: 12.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.vcard-address {
+  display: flex;
+  gap: 5px;
+  align-items: flex-start;
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--text);
+  line-height: 1.3;
+}
+.vcard-address svg {
+  flex: none;
+  margin-top: 1px;
+  color: var(--muted);
+}
+.vcard-address span {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ---- Menú lateral con íconos (solo PC) ---- */
+.rail {
+  display: none;
+}
+@media (min-width: 721px) {
+  .rail {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 4px;
+    width: 76px;
+    flex-shrink: 0;
+    padding: 12px 6px;
+    background: #111827;
+    overflow-y: auto;
+  }
+  .rail button {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 10px 2px 8px;
+    background: none;
+    color: #9ca3af;
+    border-radius: 10px;
+    font-size: 10.5px;
+    font-weight: 600;
+  }
+  .rail button:hover {
+    color: #fff;
+    background: rgb(255 255 255 / 0.06);
+  }
+  .rail button.active {
+    color: #fff;
+    background: var(--brand);
+  }
+  .rail .count {
+    position: absolute;
+    top: 4px;
+    right: 8px;
+  }
+  /* Con la barra lateral, las pestañas de arriba y el botón "Maestro" del encabezado sobran. */
+  .tabs,
+  .master-link {
+    display: none !important;
+  }
+  .sidebar {
+    width: 400px;
+  }
+}

@@ -37,8 +37,10 @@ function seed(): State {
     id: i + 1,
     name: `Unidad ${String(i + 1).padStart(3, '0')}`,
     uniqueId: `86${1000000000000 + i}`,
-    status: i % 5 === 4 ? 'offline' : 'online',
-    lastUpdate: new Date(now - (i % 5 === 4 ? 7200e3 : 20e3)).toISOString(),
+    // Cada 5: uno sin conexión; la 3ª de cada 5 queda estacionada; la unidad 8 sin reportes recientes.
+    status: i % 5 === 4 ? 'offline' : i === 7 ? 'unknown' : 'online',
+    lastUpdate: new Date(now - (i % 5 === 4 ? 7200e3 : i === 7 ? 1500e3 : 20e3)).toISOString(),
+    motionTime: new Date(now - (i % 5 === 2 ? 2 * 3600e3 + i * 60e3 : 20 * 60e3 + i * 90e3)).toISOString(),
     positionId: i + 1,
     category: ['car', 'bus', 'van'][i % 3],
     attributes: { speedLimit: 43.2 },
@@ -48,11 +50,11 @@ function seed(): State {
     deviceId: i + 1,
     latitude: lat,
     longitude: lon,
-    speed: i % 5 === 4 ? 0 : 10 + ((i * 7) % 30),
+    speed: i % 5 === 4 || i % 5 === 2 || i === 7 ? 0 : 10 + ((i * 7) % 30),
     course: (i * 47) % 360,
     fixTime: devices[i].lastUpdate,
-    address: null,
-    attributes: { totalDistance: 40000000 + i * 1500000, ignition: i % 5 !== 4, power: i === 6 ? 11.4 : 12.6 + (i % 3) * 0.6, battery: 4.1, rssi: 1 + (i % 5), sat: 6 + (i % 7), hours: (1200 + i * 90) * 3600000 },
+    address: ['Av. Insurgentes Sur 1000, Del Valle, CDMX', 'Calz. de Tlalpan 3200, Coyoacán, CDMX', null][i % 3],
+    attributes: { totalDistance: 40000000 + i * 1500000, ignition: i % 5 !== 4 && i % 5 !== 2, power: i === 6 ? 11.4 : 12.6 + (i % 3) * 0.6, battery: 4.1, rssi: 1 + (i % 5), sat: 6 + (i % 7), hours: (1200 + i * 90) * 3600000 },
   }))
   const brand = { name: 'Transportes Ruiz' }
   return {
@@ -395,7 +397,7 @@ class FakeSocket extends EventTarget {
         setInterval(() => {
           const visible = new Set(visibleDevices(me).map((d) => d.id))
           const moved = db.positions
-            .filter((p) => visible.has(p.deviceId) && db.devices.find((d) => d.id === p.deviceId)?.status === 'online')
+            .filter((p) => visible.has(p.deviceId) && db.devices.find((d) => d.id === p.deviceId)?.status === 'online' && p.speed > 0)
             .map((p) => {
               const rad = ((p.course + (Math.random() - 0.5) * 30) * Math.PI) / 180
               p.course = Math.round(((rad * 180) / Math.PI + 360) % 360)
