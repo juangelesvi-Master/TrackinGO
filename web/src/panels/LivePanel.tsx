@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { durationSince, FLEET_STATES, fleetState, isMoving, STATE_LABEL, stateSince, type FleetState } from '../fleetState'
 import { assignedDevice, formatDateTime, knotsToKmh, timeAgo, type Device, type Driver, type Position } from '../traccar'
 import { vehicleColor, vehicleKind, vehicleSideHtml } from '../vehicleIcons'
@@ -53,29 +53,7 @@ export default function LivePanel({ devices, positions, selectedId, onSelect, on
   const cardId = selectedPos?.attributes.driverUniqueId
   const driver = selectedId == null ? undefined : (drivers.find((d) => d.uniqueId === cardId) ?? drivers.find((d) => assignedDevice(d) === selectedId))
 
-  return (
-    <div className="panel">
-      <div className="state-filters" role="tablist" aria-label="Filtrar por estado">
-        <button type="button" role="tab" aria-selected={filter === 'all'} className={`state-chip st-all ${filter === 'all' ? 'on' : ''}`} onClick={() => setFilter('all')}>
-          <span className="chip-ball">{total}</span>
-          <span className="chip-label">Todos</span>
-        </button>
-        {FLEET_STATES.map((st) => (
-          <button
-            key={st.id}
-            type="button"
-            role="tab"
-            aria-selected={filter === st.id}
-            className={`state-chip st-${st.id} ${filter === st.id ? 'on' : ''}`}
-            onClick={() => setFilter(filter === st.id ? 'all' : st.id)}
-          >
-            <span className="chip-ball">{counts[st.id]}</span>
-            <span className="chip-label">{st.label}</span>
-          </button>
-        ))}
-      </div>
-
-      {selected && (
+  const detail = selected && (
         <div className="detail">
           <div className="detail-head">
             <StatusDot device={selected} position={selectedPos} />
@@ -88,7 +66,6 @@ export default function LivePanel({ devices, positions, selectedId, onSelect, on
             {isMoving(selected, selectedPos) ? 'En movimiento' : STATUS_LABEL[selected.status]} · {selectedPos ? `${knotsToKmh(selectedPos.speed)} km/h · ` : ''}
             {timeAgo(selected.lastUpdate)}
           </div>
-          {selectedPos?.address && <div className="small">{selectedPos.address}</div>}
           <div className="small">
             Chofer:{' '}
             {driver ? (
@@ -113,13 +90,50 @@ export default function LivePanel({ devices, positions, selectedId, onSelect, on
           )}
           {canEngine && <EngineControl key={selected.id} device={selected} position={selectedPos} />}
         </div>
-      )}
+  )
+  const selectedInList = selected != null && list.some((d) => d.id === selected.id)
+
+  // Si eligen el carro desde el mapa, baja la lista hasta su tarjeta para que se vea la ficha.
+  const listRef = useRef<HTMLUListElement>(null)
+  useEffect(() => {
+    if (selectedId == null) return
+    const ul = listRef.current
+    ul?.querySelector('li.vcard-detail')?.scrollIntoView({ block: 'nearest' })
+    ul?.querySelector('li.vcard.selected')?.scrollIntoView({ block: 'nearest' })
+  }, [selectedId])
+
+  return (
+    <div className="panel">
+      <div className="state-filters" role="tablist" aria-label="Filtrar por estado">
+        <button type="button" role="tab" aria-selected={filter === 'all'} className={`state-chip st-all ${filter === 'all' ? 'on' : ''}`} onClick={() => setFilter('all')}>
+          <span className="chip-ball">{total}</span>
+          <span className="chip-label">Todos</span>
+        </button>
+        {FLEET_STATES.map((st) => (
+          <button
+            key={st.id}
+            type="button"
+            role="tab"
+            aria-selected={filter === st.id}
+            className={`state-chip st-${st.id} ${filter === st.id ? 'on' : ''}`}
+            onClick={() => setFilter(filter === st.id ? 'all' : st.id)}
+          >
+            <span className="chip-ball">{counts[st.id]}</span>
+            <span className="chip-label">{st.label}</span>
+          </button>
+        ))}
+      </div>
+
+      {selected && !selectedInList && detail}
 
       <input className="search" placeholder="Buscar por nombre o IMEI" value={query} onChange={(e) => setQuery(e.target.value)} />
 
-      <ul className="device-list vcards">
+      <ul className="device-list vcards" ref={listRef}>
         {list.map((d) => (
-          <VehicleCard key={d.id} device={d} position={positions[d.id]} state={states[d.id]} selected={d.id === selectedId} onSelect={() => onSelect(d.id)} />
+          <Fragment key={d.id}>
+            <VehicleCard device={d} position={positions[d.id]} state={states[d.id]} selected={d.id === selectedId} onSelect={() => onSelect(d.id === selectedId ? null : d.id)} />
+            {d.id === selectedId && <li className={`vcard-detail st-${states[d.id]}`}>{detail}</li>}
+          </Fragment>
         ))}
         {total > 0 && list.length === 0 && <li className="muted empty">{filter === 'all' ? 'Ningún vehículo coincide.' : `No hay vehículos "${STATE_LABEL[filter]}".`}</li>}
         {total === 0 && <li className="muted empty">No hay vehículos en esta cuenta.</li>}

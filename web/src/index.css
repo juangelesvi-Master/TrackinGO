@@ -1818,3 +1818,28 @@ tfoot td {
     display: none;
   }
 }
+
+/* Ficha abierta justo debajo de la tarjeta elegida */
+.device-list.vcards li.vcard.selected:has(+ li.vcard-detail) {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+  border-bottom-color: var(--border);
+}
+.device-list.vcards li.vcard-detail {
+  display: block;
+  padding: 0;
+  cursor: default;
+  border-bottom: none;
+}
+.device-list.vcards li.vcard-detail:hover {
+  background: transparent;
+}
+.device-list.vcards li.vcard-detail .detail {
+  margin: 0;
+  background: var(--panel);
+  border: 1px solid color-mix(in srgb, var(--brand) 45%, var(--border));
+  border-top: none;
+  border-left: 4px solid var(--c, var(--brand));
+  border-radius: 0 0 10px 10px;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.1);
+}
