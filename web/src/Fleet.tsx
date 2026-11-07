@@ -214,7 +214,7 @@ export default function Fleet({ user, onUser, onLogout }: { user: User; onUser: 
   }, [fullPage, map])
 
   return (
-    <div className={wide ? 'fleet wide' : 'fleet'}>
+    <div className={['fleet', wide && 'wide', fullPage && 'page'].filter(Boolean).join(' ')}>
       {/* En PC el menú va en una barra lateral con íconos; en el celular se queda como pestañas arriba. */}
       <nav className="rail" aria-label="Menú">
         {[...tabs, ...(isMaster ? [{ id: 'master' as Tab, label: 'Maestro' }] : [])].map((t) => (
