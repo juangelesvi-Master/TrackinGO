@@ -49,7 +49,7 @@ export default function ForgotPage({ server }: { server: Server | null }) {
   }
 
   return (
-    <AuthLayout title="Recuperar contraseña" subtitle="Escribe tu correo y te enviaremos un enlace para crear una contraseña nueva.">
+    <AuthLayout title="Recuperar contraseña" subtitle="Escribe el correo de tu cuenta y te enviaremos un enlace para crear una contraseña nueva.">
       <form className="auth-form" onSubmit={submit}>
         <Field label="Correo electrónico" type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" required autoFocus />
         {error && <div className="error">{error}</div>}
@@ -57,6 +57,7 @@ export default function ForgotPage({ server }: { server: Server | null }) {
           {busy ? 'Enviando…' : 'Enviar enlace'}
         </button>
       </form>
+      <p className="muted small">Si tu cuenta no tiene correo registrado, pide a soporte técnico que restablezca tu contraseña.</p>
       {back}
     </AuthLayout>
   )

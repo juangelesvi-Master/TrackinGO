@@ -22,9 +22,11 @@ import { DeviceForm } from './AdminPage'
 import { Modal } from './Modal'
 import { Credentials, DevicePicker } from './UsersTab'
 import { userErrorText } from './userErrors'
+import AccountFields from './AccountFields'
+import { checkAccount, initialEmail, initialLogin } from './account'
 import PageTitle from './PageTitle'
 
-type Creds = { name: string; login: string; password: string }
+type Creds = { name: string; login: string; email?: string; password: string }
 
 /** Lo que tiene cada empresa: sus vehículos y sus usuarios. */
 interface CompanyInfo {
@@ -53,7 +55,8 @@ function CompanyForm({
   onCancel: () => void
 }) {
   const [name, setName] = useState(company?.name ?? '')
-  const [login, setLogin] = useState(company?.email ?? '')
+  const [login, setLogin] = useState(initialLogin(company))
+  const [email, setEmail] = useState(initialEmail(company))
   const [password, setPassword] = useState(company ? '' : generatePassword())
   const [deviceLimit, setDeviceLimit] = useState(limitText(company?.deviceLimit))
   const [userLimit, setUserLimit] = useState(limitText(company?.userLimit))
@@ -78,10 +81,15 @@ function CompanyForm({
     if (password && password.length < MIN_PASSWORD) return setError(`La contraseña debe tener al menos ${MIN_PASSWORD} caracteres.`)
     setBusy(true)
     setError('')
+    const problem = await checkAccount(login, email, company?.id)
+    if (problem) {
+      setBusy(false)
+      return setError(problem)
+    }
     const full = ROLES[0].perms!
     const data: Partial<User> = {
       name: name.trim(),
-      email: login.trim(),
+      email: email.trim().toLowerCase(),
       login: login.trim(),
       disabled: !active,
       expirationTime: expires ? new Date(`${expires}T23:59:59`).toISOString() : null,
@@ -101,7 +109,7 @@ function CompanyForm({
       // Sus usuarios ven el mismo logo y nombre.
       const brand = (data.attributes as { teesaBrand: Brand }).teesaBrand
       for (const u of info?.users ?? []) await updateUser({ ...u, attributes: { ...(u.attributes ?? {}), teesaBrand: brand } })
-      onDone(password ? { name: name.trim(), login: login.trim(), password } : undefined)
+      onDone(password ? { name: name.trim(), login: login.trim(), email: email.trim().toLowerCase(), password } : undefined)
     } catch (err) {
       setError(userErrorText(err, 'No se pudo guardar la empresa.'))
       setBusy(false)
@@ -142,16 +150,7 @@ function CompanyForm({
             )}
           </div>
         </div>
-        <label>
-          Usuario o correo del administrador (con esto inicia sesión)
-          <input
-            value={login}
-            onChange={(e) => setLogin(e.target.value.replace(/\s/g, ''))}
-            required
-            placeholder="Ej. transportesruiz o admin@empresa.com"
-            autoComplete="off"
-          />
-        </label>
+        <AccountFields login={login} email={email} onLogin={setLogin} onEmail={setEmail} loginPlaceholder="Ej. transportesruiz" emailPlaceholder="Ej. admin@empresa.com" />
         <label>
           {company ? 'Nueva contraseña (déjala vacía para no cambiarla)' : 'Contraseña'}
           <span className="password">
@@ -372,6 +371,7 @@ export default function MasterPage({ me, devices, onChanged, onBack }: { me: Use
             <tr>
               <th>Empresa</th>
               <th>Usuario</th>
+              <th>Correo</th>
               <th>Vehículos</th>
               <th>Usuarios</th>
               <th>Estado</th>
@@ -381,7 +381,7 @@ export default function MasterPage({ me, devices, onChanged, onBack }: { me: Use
           <tbody>
             {companies.length === 0 && (
               <tr>
-                <td colSpan={6} className="muted">
+                <td colSpan={7} className="muted">
                   Aún no hay empresas. Crea la primera con “+ Nueva empresa”.
                 </td>
               </tr>
@@ -392,7 +392,8 @@ export default function MasterPage({ me, devices, onChanged, onBack }: { me: Use
               return (
                 <tr key={c.id}>
                   <td>{c.name}</td>
-                  <td className="mono">{c.email}</td>
+                  <td className="mono">{initialLogin(c) || '—'}</td>
+                  <td className="mono">{initialEmail(c) || <span className="muted">Sin correo</span>}</td>
                   <td>
                     {i?.devices.size ?? '…'}
                     {c.deviceLimit && c.deviceLimit > 0 ? <span className="muted"> de {c.deviceLimit}</span> : null}

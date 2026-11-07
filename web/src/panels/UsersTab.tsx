@@ -4,6 +4,8 @@ import { generatePassword, isCompany, PERM_LABEL, permsOf, ROLES, roleOf, tracca
 import { addLinks, createUser, deleteUser, getNotifications, getUserDevices, getUsers, removeLinks, updateUser, type Device, type User } from '../traccar'
 import { Modal } from './Modal'
 import { userErrorText as errorText } from './userErrors'
+import AccountFields from './AccountFields'
+import { checkAccount, initialEmail, initialLogin } from './account'
 import { shareRules } from '../staff'
 
 
@@ -44,9 +46,9 @@ export function DevicePicker({ devices, chosen, onChange }: { devices: Device[];
 }
 
 /** Datos de acceso para copiar y mandar por WhatsApp o correo. */
-export function Credentials({ name, login, password, onClose }: { name: string; login: string; password: string; onClose: () => void }) {
+export function Credentials({ name, login, email, password, onClose }: { name: string; login: string; email?: string; password: string; onClose: () => void }) {
   const [copied, setCopied] = useState(false)
-  const text = `Hola ${name}, estos son tus datos para entrar a Traking GO:\nPortal: ${location.origin}\nUsuario: ${login}\nContraseña: ${password}`
+  const text = `Hola ${name}, estos son tus datos para entrar a Traking GO:\nPortal: ${location.origin}\nUsuario: ${login}${email ? `\nCorreo: ${email}` : ''}\nContraseña: ${password}${email ? '\nPuedes entrar con el usuario o con el correo. Si olvidas tu contraseña, recupérala con tu correo.' : ''}`
   return (
     <Modal title="Datos de acceso" onClose={onClose}>
       <p>Comparte estos datos con {name}. Por seguridad, la contraseña no se vuelve a mostrar.</p>
@@ -70,10 +72,11 @@ export function Credentials({ name, login, password, onClose }: { name: string; 
   )
 }
 
-function UserForm({ me, user, devices, onDone, onCancel }: { me: User; user: User | null; devices: Device[]; onDone: (creds?: { name: string; login: string; password: string }) => void; onCancel: () => void }) {
+function UserForm({ me, user, devices, onDone, onCancel }: { me: User; user: User | null; devices: Device[]; onDone: (creds?: { name: string; login: string; email?: string; password: string }) => void; onCancel: () => void }) {
   const initialPerms = user ? permsOf(user) : ROLES[2].perms!
   const [name, setName] = useState(user?.name ?? '')
-  const [login, setLogin] = useState(user?.email ?? '')
+  const [login, setLogin] = useState(initialLogin(user))
+  const [email, setEmail] = useState(initialEmail(user))
   const [password, setPassword] = useState(user ? '' : generatePassword())
   const [role, setRole] = useState<RoleId>(roleOf(initialPerms))
   const [perms, setPerms] = useState<Perms>(initialPerms)
@@ -107,10 +110,15 @@ function UserForm({ me, user, devices, onDone, onCancel }: { me: User; user: Use
     if (!initialDevices) return
     setBusy(true)
     setError('')
+    const problem = await checkAccount(login, email, user?.id)
+    if (problem) {
+      setBusy(false)
+      return setError(problem)
+    }
     const finalPerms = role === 'custom' ? { ...perms, users: false } : perms
     const data: Partial<User> = {
       name: name.trim(),
-      email: login.trim(),
+      email: email.trim().toLowerCase(),
       login: login.trim(),
       disabled: !active,
       expirationTime: expires ? new Date(`${expires}T23:59:59`).toISOString() : null,
@@ -133,7 +141,7 @@ function UserForm({ me, user, devices, onDone, onCancel }: { me: User; user: Use
         await addLinks([...chosen].filter((id) => !initialDevices.has(id)).map((deviceId) => ({ userId: saved.id, deviceId })))
         await removeLinks([...initialDevices].filter((id) => !chosen.has(id)).map((deviceId) => ({ userId: saved.id, deviceId })))
       }
-      onDone(password ? { name: name.trim(), login: login.trim(), password } : undefined)
+      onDone(password ? { name: name.trim(), login: login.trim(), email: email.trim().toLowerCase(), password } : undefined)
     } catch (err) {
       setError(errorText(err, 'No se pudo guardar el usuario.'))
       setBusy(false)
@@ -149,10 +157,7 @@ function UserForm({ me, user, devices, onDone, onCancel }: { me: User; user: Use
           Nombre
           <input value={name} onChange={(e) => setName(e.target.value)} required autoFocus />
         </label>
-        <label>
-          Usuario o correo (con esto inicia sesión)
-          <input value={login} onChange={(e) => setLogin(e.target.value.replace(/\s/g, ''))} required placeholder="Ej. jperez o jperez@empresa.com" autoComplete="off" />
-        </label>
+        <AccountFields login={login} email={email} onLogin={setLogin} onEmail={setEmail} loginPlaceholder="Ej. jperez" emailPlaceholder="Ej. jperez@empresa.com" />
         <label>
           {user ? 'Nueva contraseña (déjala vacía para no cambiarla)' : 'Contraseña'}
           <span className="password">
@@ -226,7 +231,7 @@ export default function UsersTab({ me, devices }: { me: User; devices: Device[] 
   // Solo para el Maestro: a qué empresa pertenece cada usuario.
   const [companyOf, setCompanyOf] = useState<Map<number, string> | null>(null)
   const [editing, setEditing] = useState<User | null | 'new'>(null)
-  const [creds, setCreds] = useState<{ name: string; login: string; password: string } | null>(null)
+  const [creds, setCreds] = useState<{ name: string; login: string; email?: string; password: string } | null>(null)
   const [error, setError] = useState('')
   const [today] = useState(() => new Date().toISOString())
 
@@ -266,6 +271,7 @@ export default function UsersTab({ me, devices }: { me: User; devices: Device[] 
             <tr>
               <th>Nombre</th>
               <th>Usuario</th>
+              <th>Correo</th>
               {companyOf && <th>Empresa</th>}
               <th>Rol</th>
               <th>Estado</th>
@@ -279,7 +285,8 @@ export default function UsersTab({ me, devices }: { me: User; devices: Device[] 
               return (
                 <tr key={u.id}>
                   <td>{u.name}</td>
-                  <td className="mono">{u.email}</td>
+                  <td className="mono">{initialLogin(u) || '—'}</td>
+                  <td className="mono">{initialEmail(u) || <span className="muted">Sin correo</span>}</td>
                   {companyOf && <td>{companyOf.get(u.id) ?? <span className="muted">Tuyo</span>}</td>}
                   <td>
                     <span className="badge muted-badge">{role.name}</span>
