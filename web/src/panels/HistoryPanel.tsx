@@ -3,7 +3,7 @@ import * as maplibregl from 'maplibre-gl'
 import { distance, escapeHtml, pinElement, removeLayers, whenReady } from '../mapUtil'
 import { vehicleColor, vehicleIconHtml, vehicleKind, type VehicleKind } from '../vehicleIcons'
 import { routeVisits, type Visit } from '../geofenceStay'
-import { deleteRoute, formatDuration, formatTime, getGeofences, getPositions, getReport, getRoute, getStops, knotsToKmh, type Device, type Geofence, type Position, type Stop, type Trip } from '../traccar'
+import { formatDuration, formatTime, getGeofences, getReport, getRoute, getStops, knotsToKmh, type Device, type Geofence, type Position, type Stop, type Trip } from '../traccar'
 
 interface Route {
   points: Position[]
@@ -110,11 +110,9 @@ interface Props {
   map: maplibregl.Map | null
   devices: Device[]
   initialDeviceId: number | null
-  /** Administradores: pueden borrar el historial. */
-  canDelete: boolean
 }
 
-export default function HistoryPanel({ map, devices, initialDeviceId, canDelete }: Props) {
+export default function HistoryPanel({ map, devices, initialDeviceId }: Props) {
   const [deviceId, setDeviceId] = useState<number | null>(initialDeviceId ?? devices[0]?.id ?? null)
   const [today] = useState(() => toInputDate(new Date()))
   const [date, setDate] = useState(today)
@@ -179,87 +177,6 @@ export default function HistoryPanel({ map, devices, initialDeviceId, canDelete 
     }
   }
 
-  const [deleting, setDeleting] = useState(false)
-  const [notice, setNotice] = useState('')
-
-  /** La última posición del vehículo: nunca se borra, porque es la que se ve en el mapa en vivo. */
-  const latestFix = async () => {
-    const latest = (await getPositions()).find((p) => p.deviceId === deviceId)
-    return latest ? new Date(latest.fixTime).getTime() : Infinity
-  }
-
-  /** Borra las posiciones entre dos horas, sin tocar la ubicación actual. */
-  const deleteBetween = async (from: Date, until: Date) => {
-    const to = new Date(Math.min(until.getTime(), (await latestFix()) - 1000))
-    if (deviceId != null && to > from) await deleteRoute(deviceId, from, to)
-  }
-
-  const removeRange = async (question: string, from: Date, until: Date, done: string) => {
-    if (deviceId == null || !confirm(question)) return
-    setDeleting(true)
-    setError('')
-    setNotice('')
-    try {
-      await deleteBetween(from, until)
-      await load()
-      setNotice(done)
-    } catch {
-      setError('No se pudo borrar. Inténtalo de nuevo.')
-    } finally {
-      setDeleting(false)
-    }
-  }
-
-  const vehicleName = devices.find((d) => d.id === deviceId)?.name ?? 'este vehículo'
-
-  const removeTrip = async (t: Trip, n: number) => {
-    if (deviceId == null) return
-    if (!confirm(`¿Borrar el recorrido ${n} de "${vehicleName}" (${formatTime(t.startTime)} – ${formatTime(t.endTime)})? No se puede deshacer.`)) return
-    setDeleting(true)
-    setError('')
-    setNotice('')
-    const a = new Date(t.startTime).getTime()
-    const b = new Date(t.endTime).getTime()
-    try {
-      // Si el recorrido termina en la ubicación actual, el vehículo sigue en camino: no se puede borrar todavía.
-      if (b >= (await latestFix()) - 1000) {
-        setError(`El recorrido ${n} sigue en curso (el GPS todavía está mandando movimiento). Podrás borrarlo cuando el vehículo se detenga.`)
-        return
-      }
-      await deleteBetween(new Date(a), new Date(b))
-      // Traccar vuelve a calcular los recorridos con los puntos que quedan. Si con los puntos
-      // de alrededor se forma otro recorrido en esas mismas horas, también se borra.
-      const overlapping = (r: Route | null) =>
-        (r?.trips ?? []).filter((x) => new Date(x.startTime).getTime() <= b && new Date(x.endTime).getTime() >= a)
-      let left = overlapping(await load())
-      for (let i = 0; i < 3 && left.length; i++) {
-        const from = Math.min(...left.map((x) => new Date(x.startTime).getTime()))
-        const to = Math.max(...left.map((x) => new Date(x.endTime).getTime()))
-        await deleteBetween(new Date(from), new Date(to))
-        left = overlapping(await load())
-      }
-      if (left.length) {
-        setError(`No se pudo borrar por completo el recorrido ${n}. Vuelve a intentarlo en un momento.`)
-        return
-      }
-      setNotice(`Se borró el recorrido ${n}.`)
-    } catch {
-      setError('No se pudo borrar. Inténtalo de nuevo.')
-    } finally {
-      setDeleting(false)
-    }
-  }
-  const removeDay = () => {
-    const [y, m, d] = date.split('-').map(Number)
-    return removeRange(`¿Borrar todos los recorridos de "${vehicleName}" del ${d}/${m}/${y}? No se puede deshacer.`, new Date(y, m - 1, d), new Date(y, m - 1, d + 1), 'Se borraron los recorridos de ese día.')
-  }
-  const removeAll = () =>
-    removeRange(
-      `¿Borrar TODO el historial de recorridos de "${vehicleName}"? Solo se conserva su ubicación actual. No se puede deshacer.`,
-      new Date(2000, 0, 1),
-      new Date(),
-      'Se borró el historial del vehículo.',
-    )
 
   /** Acerca el mapa a un recorrido. */
   const showTrip = (t: Trip) => {
@@ -324,7 +241,6 @@ export default function HistoryPanel({ map, devices, initialDeviceId, canDelete 
           {loading ? 'Cargando…' : 'Ver recorrido'}
         </button>
         {error && <div className="error">{error}</div>}
-        {notice && <div className="notice success">{notice}</div>}
       </div>
 
       {route && route.points.length === 0 && <p className="muted empty">Este vehículo no reportó posiciones ese día.</p>}
@@ -393,23 +309,6 @@ export default function HistoryPanel({ map, devices, initialDeviceId, canDelete 
                         {formatTime(t.startTime)} – {formatTime(t.endTime)} · {(t.distance / 1000).toFixed(1)} km · {formatDuration(t.duration)}
                       </div>
                     </div>
-                    {canDelete && (
-                      <button
-                        type="button"
-                        className="icon-button danger-text"
-                        title={`Borrar recorrido ${i + 1}`}
-                        aria-label={`Borrar recorrido ${i + 1}`}
-                        disabled={deleting}
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          removeTrip(t, i + 1)
-                        }}
-                      >
-                        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
-                          <path fill="currentColor" d="M9 3h6l1 2h4v2H4V5h4l1-2zm-3 6h12l-1 12H7L6 9zm4 2v8h2v-8h-2zm4 0v8h2v-8h-2z" />
-                        </svg>
-                      </button>
-                    )}
                   </li>
                 ))}
               </ul>
@@ -453,19 +352,6 @@ export default function HistoryPanel({ map, devices, initialDeviceId, canDelete 
         </>
       )}
 
-      {canDelete && deviceId != null && (
-        <div className="panel-pad danger-zone">
-          <p className="muted small">Borrar todo el día o todo el historial (solo administradores, no se puede deshacer). Para borrar un solo recorrido usa el bote de basura junto a él.</p>
-          <div className="row-actions">
-            <button type="button" className="danger" onClick={removeDay} disabled={deleting}>
-              Borrar este día
-            </button>
-            <button type="button" className="danger" onClick={removeAll} disabled={deleting}>
-              Borrar todo
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
