@@ -120,10 +120,13 @@ export default function LivePanel({ devices, positions, selectedId, onSelect, on
   )
 }
 
-/** En movimiento: en línea y el GPS dice que se mueve (o va a más de 3 km/h). */
+/** En movimiento: en línea, con el motor encendido (si el equipo lo reporta) y a 5 km/h o más.
+ *  No se usa el "motion" de Traccar: con el GPS quieto, el ruido de la señal da 1-4 km/h y lo marcaba como en movimiento. */
+const MOVING_KMH = 5
 function isMoving(d: Device, p?: Position) {
   if (d.status !== 'online' || !p) return false
-  return p.attributes.motion === true || knotsToKmh(p.speed) > 3
+  if (p.attributes.ignition === false) return false
+  return knotsToKmh(p.speed) >= MOVING_KMH
 }
 
 /** Puntito de estado; si va en movimiento, una flechita verde que apunta hacia donde va y late. */
