@@ -1813,4 +1813,8 @@ tfoot td {
   .sidebar {
     width: 400px;
   }
+  /* En Reportes, Admin y Maestro la lista de vehículos estorba: la pantalla usa todo el ancho. */
+  .fleet.page .sidebar {
+    display: none;
+  }
 }
